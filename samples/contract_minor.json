@@ -1,0 +1,62 @@
+{
+  "doc": "contract_minor",
+  "workplace": {
+    "size5plus": false
+  },
+  "employer": {
+    "name": "가나다 카페",
+    "ceo": "이사장",
+    "bizNo": "000-00-00001",
+    "address": "경기도 예시시 예시로 34, 1층",
+    "phone": "031-000-0000"
+  },
+  "employee": {
+    "name": "최학생",
+    "birth": "2009-05-10"
+  },
+  "contract": {
+    "startDate": "2026-12-26",
+    "endDate": "2027-02-28",
+    "place": "가나다 카페 매장",
+    "duties": "홀 서빙·매장 정리"
+  },
+  "work": {
+    "schedule": {
+      "토": {
+        "start": "10:00",
+        "end": "16:00",
+        "breakMin": 30
+      },
+      "일": {
+        "start": "10:00",
+        "end": "16:00",
+        "breakMin": 30
+      }
+    },
+    "weeklyHoliday": "월",
+    "publicHolidaysPaid": false
+  },
+  "wage": {
+    "type": "시급",
+    "amount": 10320,
+    "payDay": 10,
+    "payMethod": "계좌"
+  },
+  "minor": {
+    "familyCertificate": true,
+    "guardianConsent": true,
+    "guardian": {
+      "name": "최보호",
+      "birth": "1978-01-15",
+      "relation": "부",
+      "phone": "010-0000-0001"
+    }
+  },
+  "insurance": {
+    "employment": true,
+    "industrial": true,
+    "pension": true,
+    "health": true
+  },
+  "signDate": "2026-12-20"
+}

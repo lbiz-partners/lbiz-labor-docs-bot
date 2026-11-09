@@ -1,0 +1,73 @@
+{
+  "doc": "contract_foreign",
+  "workplace": {
+    "size5plus": true
+  },
+  "employer": {
+    "name": "예시정밀 주식회사",
+    "ceo": "김대표",
+    "bizNo": "000-00-00000",
+    "address": "경상남도 예시시 산업로 78",
+    "phone": "02-000-0000"
+  },
+  "employee": {
+    "name": "NGUYEN VAN A",
+    "birth": "1998-02-14",
+    "homeAddress": "Ha Noi, Viet Nam"
+  },
+  "term": {
+    "kind": "new",
+    "months": 36,
+    "probation": {
+      "use": true,
+      "months": 1
+    }
+  },
+  "place": "예시정밀 주식회사 제1공장(경상남도 예시시 산업로 78)",
+  "job": {
+    "industry": "제조업",
+    "business": "자동차 부품 가공",
+    "duties": "CNC 기계 가공 보조 및 제품 검사"
+  },
+  "work": {
+    "start": "08:30",
+    "end": "17:30",
+    "breakMin": 60,
+    "daysPerWeek": 5,
+    "avgOvertimeDaily": 1,
+    "overtimeMaxDaily": 2,
+    "shift": null
+  },
+  "holidays": {
+    "sunday": true,
+    "publicHoliday": "유급",
+    "saturday": "매주"
+  },
+  "wage": {
+    "monthlyOrdinary": 2156880,
+    "basic": {
+      "type": "월",
+      "amount": 2156880
+    },
+    "fixedAllowances": [],
+    "bonus": null,
+    "probationWage": 2156880,
+    "payDay": {
+      "monthDay": 10
+    },
+    "payMethod": "통장"
+  },
+  "lodging": {
+    "provided": true,
+    "type": "주택",
+    "costMonthly": 150000
+  },
+  "meals": {
+    "provided": true,
+    "which": [
+      "중식"
+    ],
+    "costMonthly": 0
+  },
+  "signDate": "2026-11-20"
+}

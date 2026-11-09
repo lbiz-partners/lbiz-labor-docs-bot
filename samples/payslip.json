@@ -1,0 +1,52 @@
+{
+  "doc": "payslip",
+  "workplace": {
+    "size5plus": true
+  },
+  "employer": {
+    "name": "주식회사 예시상사",
+    "ceo": "김대표",
+    "bizNo": "000-00-00000",
+    "address": "서울특별시 예시구 예시로 12, 3층",
+    "phone": "02-000-0000"
+  },
+  "employee": {
+    "name": "홍길동",
+    "birth": "1995-04-12",
+    "dept": "경영지원팀/대리"
+  },
+  "periodLabel": "2026년 11월",
+  "payDate": "2026-11-25",
+  "periodFrom": "2026-11-01",
+  "periodTo": "2026-11-30",
+  "workDays": 20,
+  "totalHours": 170,
+  "pay": {
+    "type": "monthly",
+    "baseSalary": 2600000
+  },
+  "hours": {
+    "overtime": 10,
+    "night": 2
+  },
+  "extraEarnings": [
+    {
+      "name": "식대",
+      "amount": 200000,
+      "kind": "meal",
+      "taxFree": true,
+      "method": "월 정액"
+    }
+  ],
+  "incomeTax": {
+    "family": 2,
+    "childrenUnder20": 0
+  },
+  "otherDeductions": [],
+  "insurance": {
+    "employment": true,
+    "industrial": true,
+    "pension": true,
+    "health": true
+  }
+}

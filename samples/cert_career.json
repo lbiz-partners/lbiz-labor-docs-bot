@@ -1,0 +1,37 @@
+{
+  "doc": "cert_career",
+  "employer": {
+    "name": "주식회사 예시상사",
+    "ceo": "김대표",
+    "bizNo": "000-00-00000",
+    "address": "서울특별시 예시구 예시로 12, 3층",
+    "phone": "02-000-0000"
+  },
+  "employee": {
+    "name": "정퇴사",
+    "birth": "1988-11-30",
+    "duties": "국내 영업, 거래처 관리",
+    "leaveReason": "개인 사정에 의한 퇴사"
+  },
+  "periods": [
+    {
+      "from": "2020-03-02",
+      "to": "2022-02-28",
+      "dept": "영업팀",
+      "position": "사원"
+    },
+    {
+      "from": "2022-03-01",
+      "to": "2026-06-30",
+      "dept": "영업팀",
+      "position": "대리"
+    }
+  ],
+  "requestedItems": [
+    "duties",
+    "leaveReason"
+  ],
+  "purpose": "이직(재취업) 제출용",
+  "issueDate": "2026-11-09",
+  "docNo": "제 2026-016 호"
+}

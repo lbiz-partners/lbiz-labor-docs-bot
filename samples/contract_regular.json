@@ -1,0 +1,75 @@
+{
+  "doc": "contract_regular",
+  "workplace": {
+    "size5plus": true
+  },
+  "employer": {
+    "name": "주식회사 예시상사",
+    "ceo": "김대표",
+    "bizNo": "000-00-00000",
+    "address": "서울특별시 예시구 예시로 12, 3층",
+    "phone": "02-000-0000"
+  },
+  "employee": {
+    "name": "홍길동",
+    "birth": "1995-04-12",
+    "address": "서울특별시 예시구 예시동",
+    "phone": "010-0000-0000"
+  },
+  "contract": {
+    "startDate": "2026-12-01",
+    "place": "본사 사무실(서울특별시 예시구 예시로 12)",
+    "duties": "회계·사무 지원"
+  },
+  "work": {
+    "days": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금"
+    ],
+    "start": "09:00",
+    "end": "18:00",
+    "breaks": [
+      {
+        "start": "12:00",
+        "end": "13:00"
+      }
+    ],
+    "breakMin": 60,
+    "weeklyHoliday": "일",
+    "publicHolidaysPaid": true
+  },
+  "wage": {
+    "type": "월급",
+    "amount": 2600000,
+    "allowances": [
+      {
+        "name": "식대",
+        "amount": 200000,
+        "kind": "meal",
+        "taxFree": true,
+        "monthlyRegular": true
+      }
+    ],
+    "bonus": {
+      "amount": 0
+    },
+    "payDay": 25,
+    "payCycle": "매월",
+    "payMethod": "계좌"
+  },
+  "probation": {
+    "months": 3,
+    "reducedPay": false
+  },
+  "insurance": {
+    "employment": true,
+    "industrial": true,
+    "pension": true,
+    "health": true
+  },
+  "specialTerms": [],
+  "signDate": "2026-11-25"
+}

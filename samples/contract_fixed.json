@@ -1,0 +1,59 @@
+{
+  "doc": "contract_fixed",
+  "workplace": {
+    "size5plus": true
+  },
+  "employer": {
+    "name": "주식회사 예시상사",
+    "ceo": "김대표",
+    "bizNo": "000-00-00000",
+    "address": "서울특별시 예시구 예시로 12, 3층",
+    "phone": "02-000-0000"
+  },
+  "employee": {
+    "name": "김계약",
+    "birth": "1990-09-03"
+  },
+  "contract": {
+    "startDate": "2027-01-02",
+    "endDate": "2027-12-31",
+    "place": "물류창고(경기도 예시시 예시로 56)",
+    "duties": "입출고 관리"
+  },
+  "work": {
+    "days": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금"
+    ],
+    "start": "08:30",
+    "end": "17:30",
+    "breakMin": 60,
+    "weeklyHoliday": "일",
+    "publicHolidaysPaid": true
+  },
+  "wage": {
+    "type": "월급",
+    "amount": 2400000,
+    "allowances": [
+      {
+        "name": "직책수당",
+        "amount": 100000
+      }
+    ],
+    "payDay": 10,
+    "payMethod": "계좌"
+  },
+  "insurance": {
+    "employment": true,
+    "industrial": true,
+    "pension": true,
+    "health": true
+  },
+  "specialTerms": [
+    "업무상 알게 된 회사 거래처 정보는 외부에 알리지 않는다."
+  ],
+  "signDate": "2026-12-20"
+}

@@ -1,0 +1,41 @@
+{
+  "doc": "payslip",
+  "workplace": {
+    "size5plus": false
+  },
+  "employer": {
+    "name": "가나다 카페",
+    "ceo": "이사장",
+    "bizNo": "000-00-00001",
+    "address": "경기도 예시시 예시로 34, 1층",
+    "phone": "031-000-0000"
+  },
+  "employee": {
+    "name": "박알바",
+    "birth": "2003-07-21"
+  },
+  "periodLabel": "2026년 12월",
+  "payDate": "2026-12-24",
+  "periodFrom": "2026-11-21",
+  "periodTo": "2026-12-20",
+  "workDays": 17,
+  "totalHours": 76.5,
+  "pay": {
+    "type": "hourly",
+    "mode": "actual",
+    "hourlyWage": 10500,
+    "workedHours": 76.5,
+    "weeklyHours": 18,
+    "weeklyHolidayHours": 14.4
+  },
+  "hours": {},
+  "incomeTax": {
+    "family": 1
+  },
+  "insurance": {
+    "employment": true,
+    "industrial": true,
+    "pension": true,
+    "health": true
+  }
+}

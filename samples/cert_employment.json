@@ -1,0 +1,24 @@
+{
+  "doc": "cert_employment",
+  "employer": {
+    "name": "주식회사 예시상사",
+    "ceo": "김대표",
+    "bizNo": "000-00-00000",
+    "address": "서울특별시 예시구 예시로 12, 3층",
+    "phone": "02-000-0000"
+  },
+  "employee": {
+    "name": "홍길동",
+    "birth": "1995-04-12",
+    "dept": "경영지원팀",
+    "position": "대리",
+    "joinDate": "2022-03-02",
+    "duties": "회계·사무 지원"
+  },
+  "requestedItems": [
+    "duties"
+  ],
+  "purpose": "금융기관 제출용",
+  "issueDate": "2026-11-09",
+  "docNo": "제 2026-015 호"
+}

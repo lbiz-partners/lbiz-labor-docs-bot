@@ -1,0 +1,61 @@
+{
+  "doc": "contract_parttime",
+  "workplace": {
+    "size5plus": false
+  },
+  "employer": {
+    "name": "가나다 카페",
+    "ceo": "이사장",
+    "bizNo": "000-00-00001",
+    "address": "경기도 예시시 예시로 34, 1층",
+    "phone": "031-000-0000"
+  },
+  "employee": {
+    "name": "박알바",
+    "birth": "2003-07-21"
+  },
+  "contract": {
+    "startDate": "2026-12-01",
+    "place": "가나다 카페 매장",
+    "duties": "음료 제조·매장 정리"
+  },
+  "work": {
+    "schedule": {
+      "월": {
+        "start": "10:00",
+        "end": "15:00",
+        "breakMin": 30
+      },
+      "수": {
+        "start": "10:00",
+        "end": "15:00",
+        "breakMin": 30
+      },
+      "금": {
+        "start": "10:00",
+        "end": "15:00",
+        "breakMin": 30
+      },
+      "토": {
+        "start": "11:00",
+        "end": "17:00",
+        "breakMin": 30
+      }
+    },
+    "weeklyHoliday": "일",
+    "publicHolidaysPaid": false
+  },
+  "wage": {
+    "type": "시급",
+    "amount": 10500,
+    "payDay": 10,
+    "payMethod": "계좌"
+  },
+  "insurance": {
+    "employment": true,
+    "industrial": true,
+    "pension": true,
+    "health": true
+  },
+  "signDate": "2026-11-28"
+}
