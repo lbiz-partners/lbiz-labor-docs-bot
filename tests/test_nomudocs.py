@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from nomudocs import calc  # noqa: E402
+from nomudocs import __version__, calc, tool_version_label  # noqa: E402
 from nomudocs.checks import check, mask_sensitive  # noqa: E402
 from nomudocs.generate import Blocked, generate, prepare  # noqa: E402
 
@@ -277,6 +277,39 @@ class Generate(unittest.TestCase):
             for f in sorted((ROOT / "samples").glob("*.json")):
                 out = generate(json.loads(f.read_text(encoding="utf-8")), Path(t) / f.stem, stem=f.stem, pdf=False, png=False)
                 self.assertTrue(Path(out["docx"]).exists(), f.stem)
+
+
+
+class ToolVersion(unittest.TestCase):
+    """결과물에 도구 판 번호가 찍히는지."""
+
+    def test_version_matches_file(self):
+        self.assertEqual(__version__, (ROOT / "VERSION").read_text(encoding="utf-8").strip())
+        self.assertEqual(tool_version_label(), f"도구 판 v{__version__}")
+
+    def test_tool_version_in_docx_and_json(self):
+        label = tool_version_label()
+        with tempfile.TemporaryDirectory() as td:
+            out = generate(sample("contract_regular"), td, stem="vcheck", pdf=False, png=False)
+            self.assertEqual(out.get("tool_version"), __version__)
+            j = json.loads((Path(td) / "vcheck.점검결과.json").read_text(encoding="utf-8"))
+            self.assertEqual(j.get("tool_version"), __version__)
+            from docx import Document
+            doc = Document(out["docx"])
+            texts = [para.text for para in doc.paragraphs]
+            joined = "\n".join(texts)
+            self.assertIn(label, joined)
+            self.assertEqual(joined.count(label), 1)
+
+    def test_tool_version_every_sample_docx(self):
+        label = tool_version_label()
+        from docx import Document
+        with tempfile.TemporaryDirectory() as td:
+            for f in sorted((ROOT / "samples").glob("*.json")):
+                out = generate(json.loads(f.read_text(encoding="utf-8")), Path(td) / f.stem, stem=f.stem, pdf=False, png=False)
+                self.assertEqual(out.get("tool_version"), __version__, f.stem)
+                texts = [para.text for para in Document(out["docx"]).paragraphs]
+                self.assertIn(label, "\n".join(texts), f.stem)
 
 
 if __name__ == "__main__":
