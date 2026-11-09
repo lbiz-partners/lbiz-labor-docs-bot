@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 
-from . import calc, checks
+from . import __version__, calc, checks, tool_version_label
 from .docs import certificates, contract, foreign, payslip
 from .render import docx_to_pdf, pdf_to_png
 
@@ -56,8 +56,10 @@ def generate(data: dict, outdir, stem=None, pdf=True, png=True, footer=FOOTER, a
         doc = payslip.render(safe, rep, result, footer)
     stem = stem or NAMES[data["doc"]]
     dx = outdir / f"{stem}.docx"
+    doc.p("")
+    doc.p(tool_version_label(), size=8, gray=True)
     doc.save(dx)
-    out = {"docx": str(dx), "report": rep.as_dict()}
+    out = {"docx": str(dx), "report": rep.as_dict(), "tool_version": __version__}
     if result is not None:
         out["payroll"] = {"earnings": result["earnings"], "deductions": result["deductions"], "netPay": result["netPay"]}
     if pdf:
