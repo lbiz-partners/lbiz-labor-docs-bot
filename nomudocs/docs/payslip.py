@@ -17,6 +17,8 @@ def build_engine_input(data):
     inkind = sum(x.get("value") or 0 for x in data.get("inKind") or [])
     inp = {
         "payDate": data.get("payDate"),
+        # 4대보험은 몇 월분 보험료인지(귀속월)로 요율을 고른다. 없으면 임금계산기간의 달(엔진 다리가 판단).
+        **{k: data[k] for k in ("periodFrom", "periodTo", "insuranceMonth") if data.get(k)},
         "fiveUnder": not bool((data.get("workplace") or {}).get("size5plus")),
         "taxableAllowance": taxable_extra + inkind, "bonus": bonus,
         "mealAllowance": meal, "carAllowance": car, "childcareAllowance": care, "otherTaxFree": taxfree_other,
@@ -63,6 +65,19 @@ def _fmt_h(x):
     return f"{x:g}"
 
 
+def _rate_note(basis, key, default):
+    """공제 비고. 귀속월 연도 요율이 원문 확인값이면 그 요율, 아니면 [확인 필요]를 붙인다."""
+    it = ((basis or {}).get("insurance") or {}).get("rates", {}).get(key) or {}
+    if not it or it.get("override"):
+        return default
+    if not it.get("confirmed"):
+        return default + f" [확인 필요: {it.get('year')}년 요율 미등록 — 2026년 요율로 임시 계산]"
+    if key == "nationalPension" and it.get("rateWorker") not in (None, 0.0475):
+        v = round(it["rateWorker"] * 100, 3)
+        return f"근로자 부담분 {v:.2f}%"
+    return default
+
+
 def render(data, rep, result, footer):
     er, emp = data.get("employer") or {}, data.get("employee") or {}
     p = data.get("pay") or {}
@@ -107,11 +122,12 @@ def render(data, rep, result, footer):
 
     # 공제
     fam = (data.get("incomeTax") or {}).get("family")
+    yb = result.get("yearBasis") or {}
     rows = [["공제 항목", "금액(원)", "비고"],
-            ["국민연금", f"{dd['nationalPension']:,}", "근로자 부담분 4.75%"],
-            ["건강보험", f"{dd['healthInsurance']:,}", "근로자 부담분 3.595% (10원 미만 절사)"],
-            ["장기요양보험", f"{dd['longTermCare']:,}", "건강보험료 × 0.9448/7.19 (10원 미만 절사)"],
-            ["고용보험", f"{dd['employmentInsurance']:,}", "근로자 부담분 0.9%"],
+            ["국민연금", f"{dd['nationalPension']:,}", _rate_note(yb, "nationalPension", "근로자 부담분 4.75%")],
+            ["건강보험", f"{dd['healthInsurance']:,}", _rate_note(yb, "health", "근로자 부담분 3.595% (10원 미만 절사)")],
+            ["장기요양보험", f"{dd['longTermCare']:,}", _rate_note(yb, "longTermCare", "건강보험료 × 0.9448/7.19 (10원 미만 절사)")],
+            ["고용보험", f"{dd['employmentInsurance']:,}", _rate_note(yb, "employment", "근로자 부담분 0.9%")],
             ["소득세", f"{dd['incomeTax']:,}", f"간이세액표 · 공제대상 가족 {fam if fam is not None else 1}명(본인 포함)"
              + (f" · 8~20세 자녀 {(data.get('incomeTax') or {}).get('childrenUnder20')}명" if (data.get('incomeTax') or {}).get('childrenUnder20') else "")],
             ["지방소득세", f"{dd['localIncomeTax']:,}", "소득세의 10%"]]
@@ -124,5 +140,10 @@ def render(data, rep, result, footer):
     d.h("③ 실지급액")
     d.table([["지급액 합계", f"{e['grossPay']:,}원"], ["(−) 공제액 합계", f"{dd['totalDeductions']:,}원"],
              ["실지급액", f"{result['netPay']:,}원"]], widths=[60, 114], shade_first_col=True)
+    if yb:
+        d.p(f"적용 기준 — {yb['incomeTax']['label']} / {yb['insurance']['label']}"
+            + (f" ({yb['insurance']['sourceLabel']})" if yb['insurance'].get('sourceLabel') else ""), size=8)
+        for g in yb.get("guidance") or []:
+            d.p("· " + g, size=8)
     d.p("※ 4대보험료는 공단 고지액, 소득세는 국세청 간이세액표가 최종 기준입니다. 이 명세서는 근로기준법 제48조제2항에 따라 임금 지급 때마다 교부하고 3년간 보관합니다.", gray=True, size=8)
     return d
