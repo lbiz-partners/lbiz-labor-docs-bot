@@ -62,6 +62,9 @@ def generate(data: dict, outdir, stem=None, pdf=True, png=True, footer=FOOTER, a
     out = {"docx": str(dx), "report": rep.as_dict(), "tool_version": __version__}
     if result is not None:
         out["payroll"] = {"earnings": result["earnings"], "deductions": result["deductions"], "netPay": result["netPay"]}
+        if result.get("yearBasis"):
+            # 어느 날짜·어느 달 기준으로 계산했는지(소득세 = 지급일, 4대보험 = 몇 월분 보험료)와 안내 문장
+            out["payroll"]["basis"] = result["yearBasis"]
     if pdf:
         p = docx_to_pdf(dx, outdir)
         out["pdf"] = str(p)

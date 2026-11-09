@@ -312,5 +312,94 @@ class ToolVersion(unittest.TestCase):
                 self.assertIn(label, "\n".join(texts), f.stem)
 
 
+class PayYearBasis(unittest.TestCase):
+    """v1.2 — 소득세는 지급일, 4대보험은 몇 월분 보험료(귀속월) 기준."""
+
+    def dec2026(self, **kw):
+        d = sample("payslip")
+        d.update({"periodLabel": "2026년 12월", "periodFrom": "2026-12-01", "periodTo": "2026-12-31", "payDate": "2027-01-10"})
+        d.update(kw)
+        return d
+
+    def test_dec_work_paid_jan(self):
+        # 2026년 12월분을 2027-01-10에 지급: 소득세는 2027(지급일), 4대보험은 2026 요율, 4대보험 미등록 경고 없음
+        data, r = prepare(self.dec2026())
+        yb = r["yearBasis"]
+        self.assertEqual(yb["incomeTax"]["basis"], "payDate")
+        self.assertEqual(yb["incomeTax"]["year"], 2027)
+        self.assertEqual(yb["insurance"]["month"], "2026-12")
+        self.assertEqual(yb["insurance"]["year"], 2026)
+        self.assertEqual(yb["insurance"]["pensionPeriod"], "2026H2")
+        self.assertEqual(yb["insurance"]["unconfirmed"], [])
+        self.assertIn("소득세·지방소득세: 2027-01-10 지급일 기준", yb["label"])
+        self.assertIn("4대보험: 2026년 12월분 기준", yb["label"])
+        ws = r["meta"]["warnings"]
+        self.assertFalse([w for w in ws if "4대보험 요율" in w or "보험료율" in w or "미등록" in w], ws)
+        self.assertFalse([w for w in ws if "2027H1" in w], ws)
+        # 숫자: 2026 요율 그대로(지급일 2026-12 로 계산한 것과 4대보험이 같아야 함)
+        _, r26 = prepare(self.dec2026(payDate="2026-12-31"))
+        for k in ("nationalPension", "healthInsurance", "longTermCare", "employmentInsurance", "incomeTax", "localIncomeTax"):
+            self.assertEqual(r["deductions"][k], r26["deductions"][k], k)
+        taxable = r["earnings"]["taxableGross"]
+        self.assertEqual(r["deductions"]["nationalPension"], int(taxable // 1000 * 1000 * 0.0475 // 10 * 10))
+        d = r["deductions"]
+        self.assertEqual(d["totalDeductions"], d["insuranceTotal"] + d["incomeTax"] + d["localIncomeTax"] + d["otherDeductions"])
+        self.assertEqual(r["netPay"], r["earnings"]["grossPay"] - d["totalDeductions"])
+
+    def test_insurance_month_2027_01(self):
+        # 1월분 보험료를 떼는 회사: 국민연금 2027 요율(근로자 5.00%), 나머지는 [확인 필요]
+        data, r = prepare(self.dec2026(insuranceMonth="2027-01"))
+        yb = r["yearBasis"]["insurance"]
+        self.assertEqual(yb["month"], "2027-01")
+        self.assertEqual(yb["source"], "insuranceMonth")
+        self.assertTrue(yb["rates"]["nationalPension"]["confirmed"])
+        self.assertAlmostEqual(yb["rates"]["nationalPension"]["rateWorker"], 0.05)
+        self.assertIn("제20903호", yb["rates"]["nationalPension"]["src"])
+        self.assertEqual(yb["rates"]["nationalPension"]["checked"], "2026-11-09")
+        for k in ("health", "longTermCare", "employment"):
+            self.assertFalse(yb["rates"][k]["confirmed"], k)
+            self.assertIn("[확인 필요]", yb["rates"][k]["src"])
+        self.assertEqual(yb["unconfirmed"], ["건강보험", "장기요양보험", "고용보험"])
+        self.assertEqual(yb["pensionPeriod"], "2026H2")  # 2026.7~2027.6 적용기
+        taxable = r["earnings"]["taxableGross"]
+        self.assertEqual(r["deductions"]["nationalPension"], int(taxable // 1000 * 1000 * 0.05 // 10 * 10))
+        ws = " ".join(r["meta"]["warnings"])
+        self.assertIn("[확인 필요]", ws)
+        self.assertIn("근로자 5.00%", ws)
+        # 소득세는 그대로 지급일 기준 — 12월분 기준과 같은 값
+        _, r12 = prepare(self.dec2026())
+        self.assertEqual(r["deductions"]["incomeTax"], r12["deductions"]["incomeTax"])
+        self.assertEqual(r["deductions"]["healthInsurance"], r12["deductions"]["healthInsurance"])
+
+    def test_default_month_from_paydate_without_period(self):
+        r = calc.payroll({"baseSalary": 2600000, "payDate": "2026-11-25"})
+        self.assertEqual(r["yearBasis"]["insurance"]["month"], "2026-11")
+        self.assertEqual(r["yearBasis"]["insurance"]["source"], "payDate")
+
+    def test_bad_insurance_month_falls_back(self):
+        _, r = prepare(self.dec2026(insuranceMonth="12월"))
+        self.assertEqual(r["yearBasis"]["insurance"]["month"], "2026-12")
+        self.assertTrue(any("insuranceMonth" in w for w in r["meta"]["warnings"]))
+
+    def test_outputs_show_basis_and_guidance(self):
+        from docx import Document
+        with tempfile.TemporaryDirectory() as td:
+            out = generate(self.dec2026(), td, stem="yb", pdf=False, png=False)
+            j = json.loads((Path(td) / "yb.점검결과.json").read_text(encoding="utf-8"))
+            b = j["payroll"]["basis"]
+            self.assertEqual(b["insurance"]["month"], "2026-12")
+            self.assertIn("4대보험 최종 금액은 공단 고지액을 따릅니다.", b["guidance"])
+            self.assertIn("지급일은 실제 준 날짜를 넣어야 합니다.", b["guidance"])
+            texts = "\n".join(p.text for p in Document(out["docx"]).paragraphs)
+            self.assertIn("소득세·지방소득세: 2027-01-10 지급일 기준 / 4대보험: 2026년 12월분 기준", texts)
+            self.assertIn("4대보험 최종 금액은 공단 고지액을 따릅니다.", texts)
+            self.assertIn("지급일은 실제 준 날짜를 넣어야 합니다.", texts)
+            out = generate(self.dec2026(insuranceMonth="2027-01"), Path(td) / "b", stem="yb2", pdf=False, png=False)
+            doc = Document(out["docx"])
+            cells = "\n".join(c.text for t in doc.tables for row in t.rows for c in row.cells)
+            self.assertIn("근로자 부담분 5.00%", cells)
+            self.assertIn("[확인 필요", cells)
+
+
 if __name__ == "__main__":
     unittest.main()
