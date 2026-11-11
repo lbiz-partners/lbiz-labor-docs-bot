@@ -564,6 +564,15 @@ def check_foreign(data, rep: Report):
 ADVERSE = re.compile(r"징계|해고|권고사직|무단|불량|횡령|문제")
 
 
+def _dotdate(s):
+    d = parse_date(s)
+    return f"{d.year}. {d.month:02d}. {d.day:02d}." if d else str(s)
+
+
+# 이 코드가 나오면 서류를 만들지 않는다(generate 가 Refused 를 낸다).
+REFUSE_CODES = ("C_DATE_REVERSED",)
+
+
 def check_cert(data, kind, rep: Report):
     er, emp = data.get("employer") or {}, data.get("employee") or {}
     B = "근로기준법 §39(사용증명서)"
@@ -592,7 +601,26 @@ def check_cert(data, kind, rep: Report):
             rep.add("warn", "C_REASON_ADVERSE", "퇴직사유에 불리하게 보일 수 있는 표현이 있습니다. 근로자가 요청한 내용 그대로인지 확인하세요.", "근로기준법 §39②, §40(취업 방해 금지)")
         if data.get("issueDate") and (parse_date(data["issueDate"]) - parse_date(end)).days > 365 * 3 if (end and data.get("issueDate")) else False:
             rep.add("info", "C_OVER_3Y", "퇴직 후 3년이 지난 청구는 법적 발급 의무 대상이 아닙니다(자율 발급은 가능).", "근로기준법 시행령 §19")
-    if start and end:
+    # 날짜가 거꾸로면 증명서를 만들지 않는다(N-2). 기간 줄마다, 그리고 전체 기간을 본다.
+    reversed_found = False
+    if kind == "career":
+        for i, p in enumerate(periods, 1):
+            if p.get("from") and p.get("to") and parse_date(p["to"]) < parse_date(p["from"]):
+                reversed_found = True
+                rep.add("error", "C_DATE_REVERSED",
+                        f"{i}번째 근무기간의 끝난 날({_dotdate(p['to'])})이 시작한 날({_dotdate(p['from'])})보다 앞이에요. "
+                        "날짜를 다시 확인해 주세요. 날짜가 거꾸로 된 증명서는 만들지 않아요.", B)
+    elif start and end and parse_date(end) < parse_date(start):
+        reversed_found = True
+        rep.add("error", "C_DATE_REVERSED",
+                f"발급일({_dotdate(end)})이 입사일({_dotdate(start)})보다 앞이에요. "
+                "날짜를 다시 확인해 주세요. 날짜가 거꾸로 된 증명서는 만들지 않아요.", B)
+    if start and end and not reversed_found and parse_date(end) < parse_date(start):
+        reversed_found = True
+        rep.add("error", "C_DATE_REVERSED",
+                f"끝난 날({_dotdate(end)})이 시작한 날({_dotdate(start)})보다 앞이에요. "
+                "날짜를 다시 확인해 주세요. 날짜가 거꾸로 된 증명서는 만들지 않아요.", B)
+    if start and end and not reversed_found:
         days = (parse_date(end) - parse_date(start)).days + 1
         rep.derived["tenureDays"] = days
         t = tenure_ymd(start, end)

@@ -24,6 +24,14 @@ class Blocked(Exception):
         self.report = report
 
 
+class Refused(Exception):
+    """날짜가 거꾸로인 증명서처럼, 그대로 만들면 틀린 서류가 되는 경우. 서류를 만들지 않는다."""
+
+    def __init__(self, report):
+        super().__init__("날짜가 맞지 않아 서류를 만들지 않았습니다.")
+        self.report = report
+
+
 def prepare(data):
     """임금명세서면 엔진으로 먼저 계산한다. (data, result) 를 돌려준다."""
     if data.get("doc") != "payslip":
@@ -46,6 +54,8 @@ def generate(data: dict, outdir, stem=None, pdf=True, png=True, footer=FOOTER, a
     rep = checks.check(data, result)
     if not allow_sensitive and any(f.code.startswith("SENSITIVE") for f in rep.findings):
         raise Blocked(rep)
+    if any(f.code in checks.REFUSE_CODES for f in rep.findings):
+        raise Refused(rep)
     safe = checks.mask_sensitive(data)
     fam, kind = checks.DOC_KINDS[data["doc"]]
     if fam == "contract":

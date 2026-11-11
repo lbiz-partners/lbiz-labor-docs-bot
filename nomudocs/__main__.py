@@ -6,7 +6,7 @@ import json
 import sys
 
 from . import checks
-from .generate import Blocked, generate
+from .generate import Blocked, Refused, generate
 
 ICON = {"missing": "[빈칸]", "error": "[고쳐야 함]", "warn": "[다시 보기]", "info": "[참고]"}
 
@@ -39,6 +39,10 @@ def main(argv):
         show(b.report.as_dict())
         print("민감정보가 있어 서류를 만들지 않았습니다.")
         return 3
+    except Refused as r:
+        show(r.report.as_dict())
+        print("날짜가 거꾸로 되어 있어 서류를 만들지 않았습니다. 날짜를 고친 뒤 다시 만들어 주세요.")
+        return 4
     show(out["report"])
     print("만든 파일:", out["docx"], out.get("pdf", ""))
     return 0
