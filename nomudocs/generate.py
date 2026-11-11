@@ -2,11 +2,13 @@
 import json
 from pathlib import Path
 
-from . import __version__, calc, checks, tool_version_label
+from . import ATTRIBUTION, __version__, calc, checks, tool_version_label
 from .docs import certificates, contract, foreign, payslip
 from .render import docx_to_pdf, pdf_to_png
 
-FOOTER = "이 서류는 사업주가 직접 입력한 내용으로 만든 양식입니다(2026년 기준 · 2027년 최저임금 반영). 내용 확인과 교부 책임은 사업주에게 있습니다."
+# 바닥글(L-3): 연도별 반영 항목을 바닥글에 적지 않는다. 어떤 기준값을 썼는지는 점검결과(.점검결과.json)와
+# 임금명세서 「적용 기준」 줄에 적힌다.
+FOOTER = "이 서류는 사업주가 직접 입력한 내용으로 만든 양식입니다(적용한 기준값은 함께 만든 점검결과에 적혀 있습니다). 내용 확인과 교부 책임은 사업주에게 있습니다."
 NAMES = {
     "contract_regular": "근로계약서_정규직", "contract_fixed": "근로계약서_기간제", "contract_parttime": "근로계약서_단시간",
     "contract_minor": "근로계약서_연소자", "contract_foreign": "표준근로계약서_외국인", "cert_employment": "재직증명서",
@@ -57,9 +59,9 @@ def generate(data: dict, outdir, stem=None, pdf=True, png=True, footer=FOOTER, a
     stem = stem or NAMES[data["doc"]]
     dx = outdir / f"{stem}.docx"
     doc.p("")
-    doc.p(tool_version_label(), size=8, gray=True)
+    doc.p(f"{tool_version_label()} · {ATTRIBUTION}", size=8, gray=True)
     doc.save(dx)
-    out = {"docx": str(dx), "report": rep.as_dict(), "tool_version": __version__}
+    out = {"docx": str(dx), "report": rep.as_dict(), "tool_version": __version__, "made_by": ATTRIBUTION}
     if result is not None:
         out["payroll"] = {"earnings": result["earnings"], "deductions": result["deductions"], "netPay": result["netPay"]}
         if result.get("yearBasis"):
