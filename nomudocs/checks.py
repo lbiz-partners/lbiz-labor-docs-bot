@@ -12,7 +12,7 @@ from dataclasses import dataclass, field, asdict
 from . import calc
 from .timeutil import (DAYS, age_on, break_minutes, day_work_hours, months_between,
                        monthly_paid_hours, night_minutes, parse_date, span_minutes,
-                       weekly_holiday_hours)
+                       tenure_ymd, weekly_holiday_hours)
 
 MIN_WAGE_2026 = 10320  # 고용노동부고시 제2025-47호 (엔진 rates-2026.mjs 와 같은 값; 시험이 대조)
 MIN_WAGE_2027 = 10700  # 고용노동부고시 제2026-60호(2026.8.5 고시, 2027.1.1~12.31 적용; engine/calc.mjs MINWAGE_EXTRA 와 같은 값; 시험이 대조)
@@ -21,6 +21,23 @@ MIN_WAGE = {
     2026: (MIN_WAGE_2026, "고용노동부고시 제2025-47호"),
     2027: (MIN_WAGE_2027, "고용노동부고시 제2026-60호"),
 }
+
+
+# 통상임금 확인 알림(M-1). 도구는 통상임금에 넣을지 정하지 않는다 — 빠뜨리지 않게 사장님께 묻기만 한다.
+# 근거 원문 확인: 법제처 국가법령정보 근로기준법 시행령 제6조제1항(2025-10-23 시행본),
+# 대법원 2024. 12. 19. 선고 2020다247190 전원합의체 판결(판례 일련번호 600537) — 2026-11-11 조회.
+ORDINARY_BASIS = "근로기준법 시행령 §6①, 대법원 2024. 12. 19. 선고 2020다247190 전원합의체 판결"
+
+
+def ordinary_wage_notice(names, has_hours):
+    """매달 고정 수당이 있는데 통상임금(ordinaryMonthly)을 따로 받지 않았을 때의 알림 문장."""
+    lst = "·".join(n for n in names if n) or "고정 수당"
+    msg = (f"매달 고정으로 주는 수당({lst})이 있는데 통상임금 금액을 따로 받지 않아, 통상시급을 기본급만으로 계산했어요. "
+           "이 수당이 정해진 근로에 대해 정기적·일률적으로 주는 돈이면 통상임금에 들어갈 수 있어요. "
+           "통상임금에 넣을지 사장님이 확인해 주세요(넣는다면 기본급과 그 수당을 합한 월 통상임금 금액을 알려 주세요).")
+    if has_hours:
+        msg += " 이번에는 연장·야간·휴일 시간이 있어서 그 수당 금액이 달라질 수 있어요."
+    return msg
 
 
 def mw_year(date_str):
@@ -365,8 +382,9 @@ def check_contract(data, kind, rep: Report):
         hourly = None
         if wage.get("type") == "시급":
             hourly = wage.get("amount")
-        elif wage.get("type") == "월급" and wage.get("amount"):
-            hourly = wage["amount"] / (monthly_paid_hours(weekly) or 209)
+        elif wage.get("type") == "월급" and (wage.get("ordinaryMonthly") or wage.get("amount")):
+            # 통상임금(월)을 사장님이 따로 정해 주면 그 금액, 아니면 기본급으로 통상시급을 잡는다
+            hourly = (wage.get("ordinaryMonthly") or wage["amount"]) / (monthly_paid_hours(weekly) or 209)
         if hourly:
             mult = 1.5 if five_plus else 1.0
             need_amt = hourly * fo["hoursMonthly"] * mult
@@ -384,6 +402,11 @@ def check_contract(data, kind, rep: Report):
     for a in wage.get("allowances") or []:
         if not a.get("name"):
             rep.add("missing", "ALLOWANCE_NAME", "이름 없는 수당이 있습니다. 수당 이름을 적어 주세요.", "근로기준법 §17② (임금 구성항목)")
+    # 통상임금 확인(M-1): 매월 고정 수당이 있는데 통상임금(월)을 따로 정하지 않았으면 묻는다
+    fixed_allow = [a for a in wage.get("allowances") or [] if a.get("monthlyRegular", True) and (a.get("amount") or 0) > 0]
+    if fixed_allow and not wage.get("ordinaryMonthly") and wage.get("type") in ("월급", "시급", "일급"):
+        rep.add("warn", "ORDINARY_WAGE_CHECK", ordinary_wage_notice([a.get("name") for a in fixed_allow], bool(fo.get("hoursMonthly"))),
+                ORDINARY_BASIS)
 
     # 사회보험
     ins = data.get("insurance")
@@ -541,6 +564,15 @@ def check_foreign(data, rep: Report):
 ADVERSE = re.compile(r"징계|해고|권고사직|무단|불량|횡령|문제")
 
 
+def _dotdate(s):
+    d = parse_date(s)
+    return f"{d.year}. {d.month:02d}. {d.day:02d}." if d else str(s)
+
+
+# 이 코드가 나오면 서류를 만들지 않는다(generate 가 Refused 를 낸다).
+REFUSE_CODES = ("C_DATE_REVERSED",)
+
+
 def check_cert(data, kind, rep: Report):
     er, emp = data.get("employer") or {}, data.get("employee") or {}
     B = "근로기준법 §39(사용증명서)"
@@ -569,9 +601,31 @@ def check_cert(data, kind, rep: Report):
             rep.add("warn", "C_REASON_ADVERSE", "퇴직사유에 불리하게 보일 수 있는 표현이 있습니다. 근로자가 요청한 내용 그대로인지 확인하세요.", "근로기준법 §39②, §40(취업 방해 금지)")
         if data.get("issueDate") and (parse_date(data["issueDate"]) - parse_date(end)).days > 365 * 3 if (end and data.get("issueDate")) else False:
             rep.add("info", "C_OVER_3Y", "퇴직 후 3년이 지난 청구는 법적 발급 의무 대상이 아닙니다(자율 발급은 가능).", "근로기준법 시행령 §19")
-    if start and end:
+    # 날짜가 거꾸로면 증명서를 만들지 않는다(N-2). 기간 줄마다, 그리고 전체 기간을 본다.
+    reversed_found = False
+    if kind == "career":
+        for i, p in enumerate(periods, 1):
+            if p.get("from") and p.get("to") and parse_date(p["to"]) < parse_date(p["from"]):
+                reversed_found = True
+                rep.add("error", "C_DATE_REVERSED",
+                        f"{i}번째 근무기간의 끝난 날({_dotdate(p['to'])})이 시작한 날({_dotdate(p['from'])})보다 앞이에요. "
+                        "날짜를 다시 확인해 주세요. 날짜가 거꾸로 된 증명서는 만들지 않아요.", B)
+    elif start and end and parse_date(end) < parse_date(start):
+        reversed_found = True
+        rep.add("error", "C_DATE_REVERSED",
+                f"발급일({_dotdate(end)})이 입사일({_dotdate(start)})보다 앞이에요. "
+                "날짜를 다시 확인해 주세요. 날짜가 거꾸로 된 증명서는 만들지 않아요.", B)
+    if start and end and not reversed_found and parse_date(end) < parse_date(start):
+        reversed_found = True
+        rep.add("error", "C_DATE_REVERSED",
+                f"끝난 날({_dotdate(end)})이 시작한 날({_dotdate(start)})보다 앞이에요. "
+                "날짜를 다시 확인해 주세요. 날짜가 거꾸로 된 증명서는 만들지 않아요.", B)
+    if start and end and not reversed_found:
         days = (parse_date(end) - parse_date(start)).days + 1
         rep.derived["tenureDays"] = days
+        t = tenure_ymd(start, end)
+        if t:
+            rep.derived["tenure"] = {"years": t[0], "months": t[1], "days": t[2]}
         if days < 30:
             rep.add("info", "C_UNDER_30", "계속 30일 미만 근무자는 법적 청구 대상이 아닙니다(자율 발급은 가능).", "근로기준법 시행령 §19")
     if "salary" in req and not data.get("salary"):
@@ -607,8 +661,18 @@ def check_payslip(data, rep: Report, result=None):
     for x in data.get("otherDeductions") or []:
         if not x.get("basis"):
             rep.add("warn", "P_DEDUCT_BASIS", f"'{x.get('name')}' 공제의 근거(법령·단체협약·근로자 서면 동의 등)를 적어 주세요. 근거 없는 공제는 안 됩니다.", "근로기준법 §43①")
-    fam = (data.get("incomeTax") or {}).get("family")
-    if fam is None and (data.get("incomeTax") or {}).get("mode", "table") == "table":
+    # 통상임금 확인(M-1): 매달 고정 지급 항목(변동·상여·현물 제외)이 있는데 통상임금(ordinaryMonthly)이 비었으면 묻는다
+    fixed_extra = [x for x in data.get("extraEarnings") or []
+                   if not x.get("variable") and not x.get("bonus") and (x.get("amount") or 0) > 0]
+    if fixed_extra and p.get("type") in ("monthly", "hourly") and not p.get("ordinaryMonthly"):
+        has_hours = any((data.get("hours") or {}).get(k) for k in ("overtime", "night", "holidayWithin8", "holidayOver8"))
+        rep.add("warn", "ORDINARY_WAGE_CHECK", ordinary_wage_notice([x.get("name") for x in fixed_extra], has_hours), ORDINARY_BASIS)
+    it = data.get("incomeTax") or {}
+    fam = it.get("family")
+    # 자녀 공제(L-6): 간이세액표 자녀 공제는 「8세 이상 20세 이하」 자녀만(소득세법 시행령 [별표 2] 제3호)
+    if it.get("mode", "table") == "table" and (fam or 1) >= 2 and it.get("children8to20") is None and it.get("childrenUnder20") is None:
+        rep.add("info", "P_CHILDREN", "공제대상 가족 중 8세 이상 20세 이하 자녀가 몇 명인지 알려 주세요. 없으면 0명으로 계산합니다.", "소득세법 시행령 [별표 2] 제3호")
+    if fam is None and it.get("mode", "table") == "table":
         rep.add("info", "P_FAMILY", "공제대상 가족 수(본인 포함)를 모르면 본인 1명으로 계산합니다. 부양가족이 있으면 소득세가 실제보다 많이 나옵니다.", "소득세법 시행령 [별표 2]")
     if result:
         mw = result.get("minimumWage") or {}

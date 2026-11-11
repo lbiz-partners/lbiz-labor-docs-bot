@@ -47,9 +47,19 @@ export const INSURANCE_EXTRA = {
       checked: '2026-11-09',
       checkedVia: '법제처 국가법령정보(korean-law 연결) 국민연금법 부칙 원문',
     },
-    health: null,        // [확인 필요] 2027 건강보험료율 — 2027-01-01 시행예정 시행령 §44도 1만분의 719(2026과 같음), 별도 결정 여부 미확인
-    longTermCare: null,  // [확인 필요] 2027 장기요양보험료율
-    employment: null,    // [확인 필요] 2027 고용보험료율(현행 시행령 §12 실업급여 1천분의 18)
+    health: null,        // [확인 필요] 아래 INSURANCE_PENDING 참고
+    longTermCare: null,  // [확인 필요] 아래 INSURANCE_PENDING 참고
+    employment: null,    // [확인 필요] 아래 INSURANCE_PENDING 참고
+  },
+};
+
+// 등록하지 않은 요율의 현재 상태(사실만). 2026-11-11 법제처 국가법령정보 원문 조회 기준.
+// 시행령 개정이 공포돼 원문으로 2027 값을 확인하면 INSURANCE_EXTRA 에 값을 넣고 여기서 지운다.
+export const INSURANCE_PENDING = {
+  2027: {
+    health: '2027-01-01 시행 국민건강보험법 시행령 §44①도 1만분의 719(2026과 같음, 대통령령 제36675호) — 같은 요율로 계산, 공단 고지액 확인',
+    longTermCare: '개정 시행령 공포 전(현행 노인장기요양보험법 시행령 §4: 100만분의 9,448) — 2026년 요율로 임시 계산',
+    employment: '개정 시행령 공포 전(현행 고용산재보험료징수법 시행령 §12①2호: 실업급여 1천분의 18) — 2026년 요율로 임시 계산',
   },
 };
 const ENGINE_INS_YEARS = [2026]; // 원본 엔진(rates-2026.mjs)에 4대보험 요율이 다 들어 있는 연도
@@ -115,7 +125,12 @@ function insuranceRatesFor(year) {
   for (const k of Object.keys(INS_LABEL)) {
     if (engineOk) items[k] = { ...base[k], year, confirmed: true };
     else if (extra[k]) items[k] = { ...base[k], ...extra[k], year, confirmed: true };
-    else items[k] = { ...base[k], year, usingYear: 2026, confirmed: false, src: `[확인 필요] ${year}년 요율 원문 미확인 — 2026년 요율로 임시 계산` };
+    else {
+      const pending = (INSURANCE_PENDING[year] || {})[k];
+      items[k] = { ...base[k], year, usingYear: 2026, confirmed: false,
+        src: pending ? `[확인 필요] ${year}년 요율 미등록 — ${pending} (2026-11-11 법제처 국가법령정보 원문 조회)` : `[확인 필요] ${year}년 요율 원문 미확인 — 2026년 요율로 임시 계산`,
+        ...(pending ? { pending } : {}) };
+    }
   }
   return items;
 }
@@ -279,7 +294,7 @@ function payroll(input) {
   const payDateStr = input.payDate || '(지급일 없음)';
   const mwNote = MINWAGE_EXTRA[mw.minWageYear] ? ` (최저임금은 ${mw.minWageYear}년 값 ${MINWAGE_EXTRA[mw.minWageYear].hour.toLocaleString()}원으로 판정 — ${MINWAGE_EXTRA[mw.minWageYear].notice})` : '';
   const insTail = unconfirmed.length
-    ? `${insLabel} 보험료의 ${unconfirmed.map((k) => INS_LABEL[k]).join('·')} 요율은 원문으로 확인되지 않아 등록하지 않았고 2026년 요율로 임시 계산했습니다 [확인 필요].` +
+    ? `${insLabel} 보험료의 ${unconfirmed.map((k) => INS_LABEL[k]).join('·')} 요율은 이 도구에 아직 등록하지 않아 2026년 요율로 계산했습니다 [확인 필요 — 항목별 상태는 명세서 공제 비고 참고].` +
       (insItems.nationalPension.confirmed && !ENGINE_INS_YEARS.includes(insYear) ? ` 국민연금은 ${insYear}년 요율(근로자 ${pct(insItems.nationalPension.rateWorker)})을 반영했습니다 — ${insItems.nationalPension.src}.` : '')
     : '';
   if (taxStale && unconfirmed.length && insYear === payYear) {

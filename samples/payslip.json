@@ -40,7 +40,7 @@
   ],
   "incomeTax": {
     "family": 2,
-    "childrenUnder20": 0
+    "children8to20": 0
   },
   "otherDeductions": [],
   "insurance": {

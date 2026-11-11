@@ -2,6 +2,15 @@
 from ..docx_builder import Doc, v, won
 
 
+def children_8to20(it):
+    """8세 이상 20세 이하 자녀 수. 새 키(children8to20)가 있으면 그것, 없으면 옛 키(childrenUnder20)."""
+    it = it or {}
+    n = it.get("children8to20")
+    if n is None:
+        n = it.get("childrenUnder20")
+    return n or 0
+
+
 def build_engine_input(data):
     p = data.get("pay") or {}
     h = data.get("hours") or {}
@@ -25,7 +34,9 @@ def build_engine_input(data):
         "overtimeHours": h.get("overtime") or 0, "nightHours": h.get("night") or 0,
         "holidayHoursWithin8": h.get("holidayWithin8") or 0, "holidayHoursOver8": h.get("holidayOver8") or 0,
         "otherDeductions": sum(x.get("amount") or 0 for x in data.get("otherDeductions") or []),
-        "incomeTax": {"mode": it.get("mode", "table"), "childrenUnder20": it.get("childrenUnder20", 0),
+        # 자녀 수 = 공제대상 가족 중 「8세 이상 20세 이하」 자녀(소득세법 시행령 [별표 2] 제3호).
+        # 새 입력 키 children8to20, 옛 키 childrenUnder20 도 그대로 받는다(엔진 키는 childrenUnder20).
+        "incomeTax": {"mode": it.get("mode", "table"), "childrenUnder20": children_8to20(it),
                       **({"family": it["family"]} if it.get("family") is not None else {}),
                       **({"manualTax": it["manualTax"]} if it.get("manualTax") is not None else {})},
     }
@@ -50,7 +61,8 @@ def build_engine_input(data):
         base = round(hw * (p.get("workedHours") or 0))
         hol = round(hw * (p.get("weeklyHolidayHours") or 0))
         inp["baseSalary"] = base + hol
-        inp["ordinaryMonthly"] = hw * 209
+        # 통상임금(월)을 사장님이 따로 정해 주면 그 금액(고정 수당 포함 등), 아니면 시급 × 209시간
+        inp["ordinaryMonthly"] = p.get("ordinaryMonthly") or hw * 209
         inp["ordinaryHours"] = 209
         inp["_split"] = {"base": base, "holiday": hol}
         # 최저임금 점검은 실제 시급·주 소정시간 기준으로
@@ -71,11 +83,26 @@ def _rate_note(basis, key, default):
     if not it or it.get("override"):
         return default
     if not it.get("confirmed"):
+        if it.get("pending"):
+            return default + f" [확인 필요: {it.get('year')}년 요율 — {it['pending']}]"
         return default + f" [확인 필요: {it.get('year')}년 요율 미등록 — 2026년 요율로 임시 계산]"
     if key == "nationalPension" and it.get("rateWorker") not in (None, 0.0475):
         v = round(it["rateWorker"] * 100, 3)
         return f"근로자 부담분 {v:.2f}%"
     return default
+
+
+def _tax_note(data, yb, fam):
+    """소득세 비고. 지급일 연도의 간이세액표가 원문으로 확인 안 됐으면 [확인 필요]를 서류에도 찍는다(L-2)."""
+    it = data.get("incomeTax") or {}
+    note = f"간이세액표 · 공제대상 가족 {fam if fam is not None else 1}명(본인 포함)"
+    kids = children_8to20(it)
+    if kids:
+        note += f" · 8세 이상 20세 이하 자녀 {kids}명"
+    tx = (yb or {}).get("incomeTax") or {}
+    if tx and tx.get("tableYearConfirmed") is False:
+        note += f" [확인 필요: {tx.get('year')}년 간이세액표 개정 여부 미확인 — 현행표(2026-03-01 시행)로 계산]"
+    return note
 
 
 def render(data, rep, result, footer):
@@ -128,8 +155,7 @@ def render(data, rep, result, footer):
             ["건강보험", f"{dd['healthInsurance']:,}", _rate_note(yb, "health", "근로자 부담분 3.595% (10원 미만 절사)")],
             ["장기요양보험", f"{dd['longTermCare']:,}", _rate_note(yb, "longTermCare", "건강보험료 × 0.9448/7.19 (10원 미만 절사)")],
             ["고용보험", f"{dd['employmentInsurance']:,}", _rate_note(yb, "employment", "근로자 부담분 0.9%")],
-            ["소득세", f"{dd['incomeTax']:,}", f"간이세액표 · 공제대상 가족 {fam if fam is not None else 1}명(본인 포함)"
-             + (f" · 8~20세 자녀 {(data.get('incomeTax') or {}).get('childrenUnder20')}명" if (data.get('incomeTax') or {}).get('childrenUnder20') else "")],
+            ["소득세", f"{dd['incomeTax']:,}", _tax_note(data, yb, fam)],
             ["지방소득세", f"{dd['localIncomeTax']:,}", "소득세의 10%"]]
     for x in data.get("otherDeductions") or []:
         rows.append([v(x.get("name")), f"{(x.get('amount') or 0):,}", "근거: " + v(x.get("basis"))])

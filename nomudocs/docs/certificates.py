@@ -1,7 +1,7 @@
 """재직증명서·경력증명서 — 원본 nomu-people templates/certificates.md 기준.
 근로자가 요청한 항목만 적는다(근로기준법 §39②). 주민번호 전체는 넣지 않는다."""
 from ..docx_builder import Doc, v, ymd
-from ..timeutil import parse_date
+from ..timeutil import tenure_text
 
 
 def _dot(s):
@@ -12,12 +12,15 @@ def _dot(s):
 
 
 def _tenure(a, b):
-    a, b = parse_date(a), parse_date(b)
-    if not a or not b:
-        return ""
-    months = (b.year - a.year) * 12 + (b.month - a.month) + (1 if b.day >= a.day - 1 else 0)
-    y, m = divmod(max(months, 0), 12)
-    return f"(총 {y}년 {m}개월)" if y else f"(총 {m}개월)"
+    """첫날·끝날을 모두 넣은 실제 기간(년·개월·일). 끝나지 않은 달을 꽉 찬 달로 세지 않는다(올림 없음)."""
+    t = tenure_text(a, b)
+    return f"(총 {t})" if t else ""
+
+
+def _workplace(er):
+    """증명 문장에 들어갈 사업장 이름. 없으면 손으로 쓸 빈칸."""
+    name = (er.get("name") or "").strip()
+    return name if name else "　　　　　　　　"
 
 
 def _company(d, er):
@@ -50,7 +53,7 @@ def render(data, rep, kind, footer):
         if "salary" in req:
             rows.append(["임금", v(data.get("salary"))])
         d.table(rows, widths=[40, 134], shade_first_col=True)
-        d.p("위 사람은 현재 본사에 재직 중임을 증명합니다.", align="center", size=12, space_after=8)
+        d.p(f"위 사람은 현재 {_workplace(er)}에 재직 중임을 증명합니다.", align="center", size=12, space_after=8)
     else:
         d.h("■ 경력사항")
         rows = [["근무기간", "부서", "직위(직책)"]]
@@ -68,7 +71,7 @@ def render(data, rep, kind, footer):
         if "salary" in req:
             rows.append(["임금", v(data.get("salary"))])
         d.table(rows, widths=[40, 134], shade_first_col=True)
-        d.p("위 사람은 위 기간 동안 본사에 근무하였음을 증명합니다.", align="center", size=12, space_after=8)
+        d.p(f"위 사람은 위 기간 동안 {_workplace(er)}에 근무하였음을 증명합니다.", align="center", size=12, space_after=8)
     d.h("■ 발급사항")
     d.table([["발급용도", v(data.get("purpose"))], ["발급일자", _dot(data.get("issueDate"))]], widths=[40, 134], shade_first_col=True)
     _company(d, er)
