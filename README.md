@@ -2,7 +2,7 @@
 
 사장님이 입력한 내용으로 근로계약서·증명서·임금명세서를 **채우고, 계산하고, 빈칸을 점검**하는 도구. 판단·대리 작성·상담은 하지 않는다(공인노무사법 업무 영역과 선 긋기).
 
-만든 곳: **엘비즈파트너스**. 저작권·라이선스·원본 계산 엔진 출처는 [NOTICE.md](NOTICE.md).
+만든 곳: **엘비즈파트너스**. 라이선스: **MIT** ([LICENSE](LICENSE), Copyright (c) 2026 엘비즈파트너스(LBIZ Partners)). 계산 엔진(`engine/vendor/`)도 엘비즈파트너스가 만든 것입니다. 자세한 출처는 [NOTICE.md](NOTICE.md).
 
 ## 구조
 ```
@@ -23,6 +23,7 @@ docs/bot-instructions-draft/  봇 지침·스킬·카드 문구 초안(실제 �
 RATES_CHECK.md       기준값 교차확인표
 OTHER_DOCS.md        다른 서류 포함 제안
 NOTICE.md            만든 곳·저작권·라이선스·출처
+LICENSE              MIT 라이선스 전문
 ```
 `out/`(예시 산출물)은 `make_samples.py`를 돌리면 생기고 저장소에는 넣지 않는다.
 

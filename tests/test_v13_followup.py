@@ -118,5 +118,20 @@ class N2ReversedCertDates(unittest.TestCase):
             self.assertFalse(list((Path(td) / "out").rglob("*.docx")) if (Path(td) / "out").exists() else [])
 
 
+class LicenseNotice(unittest.TestCase):
+    def test_mit_license_and_notice(self):
+        lic = (ROOT / "LICENSE").read_text(encoding="utf-8")
+        self.assertTrue(lic.startswith("MIT License"))
+        self.assertIn("Copyright (c) 2026 엘비즈파트너스(LBIZ Partners)", lic)
+        self.assertIn("THE SOFTWARE IS PROVIDED \"AS IS\"", lic)
+        notice = (ROOT / "NOTICE.md").read_text(encoding="utf-8")
+        self.assertIn("MIT", notice)
+        self.assertIn("저작권자는 엘비즈파트너스", notice)
+        self.assertIn("다른 곳의 코드를 가져온 것이 아닙니다", notice)
+        self.assertNotIn("라이선스는 아직 정하지 않았습니다", notice)
+        self.assertIn("[확인 필요: 같은 스킬의 다른 사본에는", notice)  # 엔진 판 번호는 아직 확인 필요
+        self.assertIn("MIT", (ROOT / "README.md").read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":
     unittest.main()
