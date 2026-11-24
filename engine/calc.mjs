@@ -7,15 +7,17 @@
 //   ② 원본 경고문 중 "2026 하반기 5인 미만 가산수당 확대 예정"은 원본 v3.4.7 에서 스스로
 //      반증한 문장이라 고친 문장으로 바꾼다.
 //   ③ 원본 엔진에 아직 없는 연도의 최저임금(MINWAGE_EXTRA, 지금은 2027)을 기준일 연도에 맞춰
-//      최저임금 판정에 쓴다. 4대보험·간이세액표 2027 값은 아직 없으므로 원본의 '미등록 연도' 경고는
+//      최저임금 판정에 쓴다. 장기요양·고용보험·간이세액표 2027 값은 아직 없으므로 원본의 '미등록 연도' 경고는
 //      최저임금 부분만 고쳐 그대로 남긴다.
 //   ④ (v1.2) 연도 기준을 항목별로 나눈다.
 //      · 소득세·지방소득세 = 지급일 기준(소득세법 §134①, 시행령 §194①, 지방세법 §103의13①). 원본 그대로.
 //      · 4대보험 = 몇 월분 보험료인지(보험료 귀속월) 기준. 입력 insuranceMonth(YYYY-MM),
 //        없으면 임금계산기간(periodTo → periodFrom)의 달, 그것도 없으면 지급일의 달.
 //        (국민연금법 §88②, 국민건강보험법 §69④, 고용산재보험료징수법 §16의3①, 각 요율 개정 부칙의 「○월분 보험료」 적용례)
-//      · 2027 국민연금 요율은 INSURANCE_EXTRA 에 원문 확인값만 넣었다. 원문으로 확인 안 된 요율은 등록하지 않고
+//      · 2027 국민연금·건강보험 요율은 INSURANCE_EXTRA 에 원문 확인값만 넣었다. 원문으로 확인 안 된 요율은 등록하지 않고
 //        결과에 [확인 필요]로 남긴다(2026 값으로 임시 계산).
+//   ⑤ 보육수당 비과세는 6세 이하 자녀 수(childcareChildren) × 월 20만원. 출산지원금(birthAllowance)은 전액 비과세.
+//      원본 엔진의 보육 한도(월 20만 일괄)는 고치지 않고, 이 다리에서만 나눈다.
 // 사용:  echo '{"op":"payroll","input":{...}}' | node calc.mjs
 import { calcPayroll, checkMinimumWage, hourlyToMonthly } from './vendor/payroll.mjs';
 import { calcWeek, calcWorktime } from './vendor/people/worktime.mjs';
@@ -47,21 +49,28 @@ export const INSURANCE_EXTRA = {
       checked: '2026-11-09',
       checkedVia: '법제처 국가법령정보(korean-law 연결) 국민연금법 부칙 원문',
     },
-    health: null,        // [확인 필요] 아래 INSURANCE_PENDING 참고
+    health: {
+      rateTotal: 0.0719, rateWorker: 0.03595,
+      src: "국민건강보험법 시행령 §44① 2027-01-01 시행본(대통령령 제36675호) '1만분의 719', 2026-09-08 건정심 동결 의결",
+      checked: '2026-11-24',
+      checkedVia: '법제처 국가법령정보 2027-01-01 시행본 제44조제1항 「1만분의 719」(2026-11-24 조회). 건정심 의결일은 조문 원문에 없어 src 문구에만 요청대로 남김',
+    },
     longTermCare: null,  // [확인 필요] 아래 INSURANCE_PENDING 참고
     employment: null,    // [확인 필요] 아래 INSURANCE_PENDING 참고
   },
 };
 
-// 등록하지 않은 요율의 현재 상태(사실만). 2026-11-11 법제처 국가법령정보 원문 조회 기준.
-// 시행령 개정이 공포돼 원문으로 2027 값을 확인하면 INSURANCE_EXTRA 에 값을 넣고 여기서 지운다.
+// 등록하지 않은 요율의 현재 상태(사실만). 시행령 개정이 공포돼 원문으로 2027 값을 확인하면
+// INSURANCE_EXTRA 에 값을 넣고 여기서 지운다. 건강보험 요율은 2027-01-01 시행본으로 확인해 위에서 등록하고 여기서 뺐다.
+// 월 보험료 상한 9,183,480원·하한 20,160원은 2027 고시가 없어 여기 넣지 않는다(걸린 계산에만 [확인 필요]).
 export const INSURANCE_PENDING = {
   2027: {
-    health: '2027-01-01 시행 국민건강보험법 시행령 §44①도 1만분의 719(2026과 같음, 대통령령 제36675호) — 같은 요율로 계산, 공단 고지액 확인',
-    longTermCare: '개정 시행령 공포 전(현행 노인장기요양보험법 시행령 §4: 100만분의 9,448) — 2026년 요율로 임시 계산',
-    employment: '개정 시행령 공포 전(현행 고용산재보험료징수법 시행령 §12①2호: 실업급여 1천분의 18) — 2026년 요율로 임시 계산',
+    longTermCare: '2026-10-30 장기요양위원회 0.9994% 의결, 보건복지부공고 제2026-846호 입법예고 중. 개정 시행령 공포 전이라 2026 요율로 임시 계산',
+    employment: '고용노동부공고 제2026-450호 입법예고(실업급여 1천분의 18→20, 근로자 0.9%→1.0%). 공포 전이라 0.9%로 임시 계산',
   },
 };
+const HEALTH_CAP_2026 = 9183480;
+const HEALTH_FLOOR_2026 = 20160;
 const ENGINE_INS_YEARS = [2026]; // 원본 엔진(rates-2026.mjs)에 4대보험 요율이 다 들어 있는 연도
 const INS_LABEL = { nationalPension: '국민연금', health: '건강보험', longTermCare: '장기요양보험', employment: '고용보험' };
 
@@ -128,7 +137,7 @@ function insuranceRatesFor(year) {
     else {
       const pending = (INSURANCE_PENDING[year] || {})[k];
       items[k] = { ...base[k], year, usingYear: 2026, confirmed: false,
-        src: pending ? `[확인 필요] ${year}년 요율 미등록 — ${pending} (2026-11-11 법제처 국가법령정보 원문 조회)` : `[확인 필요] ${year}년 요율 원문 미확인 — 2026년 요율로 임시 계산`,
+        src: pending ? `[확인 필요] ${year}년 요율 미등록 — ${pending}` : `[확인 필요] ${year}년 요율 원문 미확인 — 2026년 요율로 임시 계산`,
         ...(pending ? { pending } : {}) };
     }
   }
@@ -221,6 +230,91 @@ function minwageYearAware(input) {
 }
 
 const floor10 = (v) => Math.floor((v + 1e-6) / 10) * 10;
+const numQuiet = (v) => {
+  if (typeof v === 'number' && isFinite(v)) return v;
+  if (v == null || v === '') return 0;
+  const n = Number(String(v).replace(/[,원\s]/g, ''));
+  return isFinite(n) ? n : 0;
+};
+
+// 보육수당 = 6세 이하 자녀 1명당 월 20만원. 출산지원금은 전액 비과세(소득세법 §12 3호 머목).
+// 원본 엔진은 보육을 월 20만원으로만 자르고 초과분을 지급액에서 빼므로, 자녀 수를 받은 경우에만
+// 여기서 한도를 맞춘 뒤 원본에 넘긴다. 자녀 수가 없으면 원본 그대로(월 20만원)이고 [확인 필요]를 붙인다.
+const CHILDCARE_PER_CHILD = 200000;
+const BIRTH_QUESTION = '출생일 2년 이내·최대 2회·친족 특수관계 제외';
+export function splitTaxFreeAllowances(input) {
+  const notes = [];
+  const out = { ...input };
+  const careAmt = numQuiet(input.childcareAllowance);
+  const given = !(input.childcareChildren === undefined || input.childcareChildren === null || input.childcareChildren === '');
+  let childcareMeta = null;
+  if (given) {
+    const n = Math.max(0, Math.floor(numQuiet(input.childcareChildren)));
+    const limit = CHILDCARE_PER_CHILD * n;
+    const exempt = Math.min(careAmt, limit);
+    const excess = Math.max(0, careAmt - exempt);
+    const vendorCare = Math.min(exempt, CHILDCARE_PER_CHILD);
+    const spill = Math.max(0, exempt - CHILDCARE_PER_CHILD);
+    out.childcareAllowance = vendorCare;
+    out.otherTaxFree = numQuiet(input.otherTaxFree) + spill;
+    out.taxableAllowance = numQuiet(input.taxableAllowance) + excess;
+    childcareMeta = {
+      children: n, limit, exempt, excess, perChild: CHILDCARE_PER_CHILD,
+      src: '소득세법 §12 3호 머목 2) 6세 이하 자녀 1명당 월 20만원',
+    };
+    if (excess > 0)
+      notes.push(`보육수당 비과세 한도(6세 이하 ${n}명 × 20만원 = ${limit.toLocaleString('ko-KR')}원)를 넘는 ${excess.toLocaleString('ko-KR')}원은 과세소득에 넣었습니다(소득세법 §12 3호 머목).`);
+  } else if (careAmt > 0) {
+    notes.push('[확인 필요] 보육수당이 있는데 6세 이하 자녀 수(childcareChildren)가 없습니다. 한도는 자녀 1명당 월 20만원(소득세법 §12 3호 머목)입니다. 자녀 수를 넣기 전에는 월 20만원까지만 비과세로 계산합니다.');
+  }
+  const birthAmt = numQuiet(input.birthAllowance);
+  let birthMeta = null;
+  if (birthAmt > 0) {
+    out.otherTaxFree = numQuiet(out.otherTaxFree) + birthAmt;
+    birthMeta = {
+      amount: birthAmt, fullyTaxFree: true, question: BIRTH_QUESTION,
+      src: '소득세법 §12 3호 머목 1) 전액 비과세',
+    };
+  }
+  delete out.childcareChildren;
+  delete out.birthAllowance;
+  return { input: out, notes, childcareMeta, birthMeta };
+}
+
+function relabelTaxFree(r, childcareMeta, birthMeta) {
+  const tf = r.earnings && r.earnings.taxFree;
+  if (!tf) return;
+  if (childcareMeta) {
+    const spill = Math.max(0, childcareMeta.exempt - (tf.childcare || 0));
+    tf.childcare = childcareMeta.exempt;
+    tf.other = Math.max(0, (tf.other || 0) - spill);
+    r.taxFreeChildcare = childcareMeta;
+  }
+  if (birthMeta) {
+    tf.birth = birthMeta.amount;
+    tf.other = Math.max(0, (tf.other || 0) - birthMeta.amount);
+    r.taxFreeBirth = birthMeta;
+  }
+}
+
+function healthRateUsed(insYear, ov, insItems, engineRate) {
+  if (ov.health !== undefined && ov.health !== null && ov.health !== '' && Number(ov.health) > 0)
+    return Number(ov.health);
+  if (!ENGINE_INS_YEARS.includes(insYear) && insItems.health && insItems.health.confirmed)
+    return insItems.health.rateTotal;
+  return engineRate;
+}
+
+// 2027 월 보험료 상·하한 고시는 없다. 2026 값으로 자르되, 그 상한·하한에 실제로 걸린 계산에만 [확인 필요].
+function healthCapFloorNote(insYear, taxable, hiRate, cap, floor) {
+  if (insYear !== 2027 || !(hiRate > 0) || !(taxable > 0)) return null;
+  const raw = taxable * hiRate;
+  if (raw > cap + 0.5)
+    return `[확인 필요] 2027년 건강보험 월 보험료 상한 고시가 아직 없습니다. 이 계산은 상한 ${cap.toLocaleString('ko-KR')}원(2026년 고시 값)에 걸렸습니다.`;
+  if (raw < floor - 0.5)
+    return `[확인 필요] 2027년 건강보험 월 보험료 하한 고시가 아직 없습니다. 이 계산은 하한 ${floor.toLocaleString('ko-KR')}원(2026년 고시 값)에 걸렸습니다.`;
+  return null;
+}
 const FIXED_FIVE_UNDER =
   '5인 미만: 근로기준법 §56 가산수당 미적용으로 계산(근로한 시간만큼 1.0배만). 2026-11 기준 시행령 별표1 개정 시행 사실 없음 — 발급 전 국가법령정보센터에서 한 번 더 확인하세요.';
 
@@ -231,7 +325,9 @@ function fixWarnings(list) {
     /2026 하반기 5인 미만 가산수당/.test(w) ? FIXED_FIVE_UNDER : fixStale(w));
 }
 
-function payroll(input) {
+function payroll(rawInput) {
+  const split = splitTaxFreeAllowances(rawInput || {});
+  const input = split.input;
   // ④ 연도 기준을 항목별로 — 소득세는 지급일, 4대보험은 보험료 귀속월
   const IM = insuranceMonthOf(input);
   const insYear = +IM.month.slice(0, 4);
@@ -244,6 +340,8 @@ function payroll(input) {
   // 귀속연도가 원본 엔진에 없고 원문 확인 요율이 있으면 그 요율을 쓴다(사장님 override 가 있으면 그게 우선).
   if (!ENGINE_INS_YEARS.includes(insYear) && insItems.nationalPension.confirmed && (ov.nationalPension === undefined || ov.nationalPension === null || ov.nationalPension === ''))
     ovIns.nationalPension = insItems.nationalPension.rateTotal;
+  if (!ENGINE_INS_YEARS.includes(insYear) && insItems.health.confirmed && (ov.health === undefined || ov.health === null || ov.health === ''))
+    ovIns.health = insItems.health.rateTotal;
 
   // (가) 소득세·지방소득세 계산용 — 지급일 기준(원본 그대로)
   const r = calcPayroll({ ...input, pensionPeriod });
@@ -259,15 +357,18 @@ function payroll(input) {
   r.input.pensionPeriod = ri.input.pensionPeriod;
 
   // ① 10원 절사 보정 (건강보험 요율 0% 적용제외면 그대로 0) — 귀속월 연도의 요율로
+  const rateBundle = getRates(insYear);
+  const hiRate = healthRateUsed(insYear, ov, insItems, rateBundle.INSURANCE.health.rateTotal);
+  const healthBoundNote = (d.healthInsurance > 0)
+    ? healthCapFloorNote(insYear, r.earnings.taxableGross, hiRate, rateBundle.INSURANCE.health.premiumCapTotal, rateBundle.INSURANCE.health.premiumFloorTotal)
+    : null;
   if (d.healthInsurance > 0 && !input.keepEngineRounding) {
-    const R = getRates(insYear);
-    const hiRate = Number(ov.health) > 0 ? Number(ov.health) : R.INSURANCE.health.rateTotal;
     const taxable = r.earnings.taxableGross;
-    const I = R.INSURANCE.health;
+    const I = rateBundle.INSURANCE.health;
     let total = taxable * hiRate;
     total = Math.min(Math.max(total, I.premiumFloorTotal), I.premiumCapTotal);
     const hi = floor10(total / 2);
-    const ltc = floor10(hi * (R.INSURANCE.longTermCare.rateOfSalary / hiRate));
+    const ltc = floor10(hi * (rateBundle.INSURANCE.longTermCare.rateOfSalary / hiRate));
     const delta = (d.healthInsurance - hi) + (d.longTermCare - ltc);
     d.engineRounding = { healthInsurance: d.healthInsurance, longTermCare: d.longTermCare };
     d.healthInsurance = hi;
@@ -289,7 +390,9 @@ function payroll(input) {
   const taxStale = getRates(payYear).stale;
   const unconfirmed = Object.keys(INS_LABEL).filter((k) => !insItems[k].confirmed);
   const engineWarn = (r.meta.warnings || []).filter((w) => !w.startsWith('🔴 최저임금') && !STALE_RE.test(w) && !NP_PERIOD_RE.test(w));
-  const extraWarn = [...IM.notes];
+  const extraWarn = [...IM.notes, ...split.notes];
+  if (healthBoundNote) extraWarn.push(healthBoundNote);
+  relabelTaxFree(r, split.childcareMeta, split.birthMeta);
   const insLabel = `${insYear}년 ${+IM.month.slice(5)}월분`;
   const payDateStr = input.payDate || '(지급일 없음)';
   const mwNote = MINWAGE_EXTRA[mw.minWageYear] ? ` (최저임금은 ${mw.minWageYear}년 값 ${MINWAGE_EXTRA[mw.minWageYear].hour.toLocaleString()}원으로 판정 — ${MINWAGE_EXTRA[mw.minWageYear].notice})` : '';
@@ -331,6 +434,7 @@ function payroll(input) {
       pensionPeriod: r.input.pensionPeriod, pensionPeriodLabel: NP.label, pensionPeriodConfirmed: !!(userPensionPeriod || NP.registered),
       rates: Object.fromEntries(Object.keys(INS_LABEL).map((k) => [k, rateLine(k)])),
       unconfirmed: unconfirmed.map((k) => INS_LABEL[k]),
+      healthPremiumBound: healthBoundNote ? { note: healthBoundNote, cap: HEALTH_CAP_2026, floor: HEALTH_FLOOR_2026 } : null,
       law: '국민연금법 §88②·§90①, 국민건강보험법 §69④·§77③, 고용산재보험료징수법 §16의3①·§16의7①',
     },
     guidance: [...GUIDANCE],

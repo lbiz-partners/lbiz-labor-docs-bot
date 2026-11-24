@@ -81,7 +81,8 @@ def render(data, rep, kind, footer):
         bt = ""
         if work.get("breaks"):
             bt = ", ".join(f"{b['start']}~{b['end']}" for b in work["breaks"] if isinstance(b, dict))
-        d.h(f"4. 소정근로시간: {v(work.get('start'))}부터 {v(work.get('end'))}까지 (휴게시간: {bt or v(brk, '분')})")
+        waived = " · 근로자가 휴게를 이용하지 않겠다고 명시적으로 요청" if work.get("breakWaivedByWorker") is True else ""
+        d.h(f"4. 소정근로시간: {v(work.get('start'))}부터 {v(work.get('end'))}까지 (휴게시간: {bt or v(brk, '분')}{waived})")
         d.p(f"   1일 {v(round(max((s['hours'] or 0) for s in sched.values()), 2) if sched else None, '시간')} · 1주 {v(round(weekly, 2) if sched else None, '시간')}")
     else:
         d.h("4. 근로일 및 근로일별 근로시간")
@@ -95,6 +96,10 @@ def render(data, rep, kind, footer):
             rows[4].append(v(s and s["breakMin"], "분", empty="-"))
         d.table(rows, widths=[22] + [21] * 7, header=True, shade_first_col=True)
         d.p(f"   1주 소정근로시간 합계: {weekly:g}시간")
+    d.p("   휴게시간은 근로시간 도중에 준다. 근로시간이 4시간인 경우에는 30분 이상, 8시간인 경우에는 1시간 이상이다(근로기준법 제54조제1항). "
+        "2026년 12월 10일부터는 근로시간이 4시간인 경우로서 근로자가 휴게시간을 이용하지 아니할 것을 명시적으로 요청한 때에는 휴게를 주지 않을 수 있다(법률 제21784호). "
+        "근로자가 직접 요청한 경우에만 생략 가능. 요청 사실을 서면으로 남겨 두세요. "
+        "[확인 필요] '4시간인 경우'의 범위는 이 도구가 정하지 않습니다. 노무사 또는 고용노동부 1350에 확인하세요.")
 
     # 5. 근무일/휴일
     days = list(sched.keys())

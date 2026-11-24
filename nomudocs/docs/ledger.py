@@ -41,6 +41,7 @@ HEADER_MAP = {
     "휴일근로8시간이내": "holidayWithin8", "휴일근로시간8시간이내": "holidayWithin8",
     "휴일근로8시간초과": "holidayOver8", "휴일근로시간8시간초과": "holidayOver8",
     "가족수": "family", "자녀수8세이상20세이하": "children8to20",
+    "6세이하자녀수": "childcareChildren", "보육자녀수": "childcareChildren",
     "수당1이름": "a1name", "수당1금액": "a1amt", "수당1비과세": "a1tax",
     "수당2이름": "a2name", "수당2금액": "a2amt", "수당2비과세": "a2tax",
     "공제1이름": "d1name", "공제1금액": "d1amt", "공제1근거": "d1basis",
@@ -53,7 +54,7 @@ MONTH_FIELDS = {"yearMonth", "insuranceMonth"}
 NUM_FIELDS = {
     "workDays", "totalHours", "baseSalary", "hourlyWage", "weeklyHours", "workedHours",
     "weeklyHolidayHours", "ordinaryMonthly", "overtime", "night", "holidayWithin8", "holidayOver8",
-    "family", "children8to20", "a1amt", "a2amt", "d1amt", "inkindQty", "inkindValue", "usageDays",
+    "family", "children8to20", "childcareChildren", "a1amt", "a2amt", "d1amt", "inkindQty", "inkindValue", "usageDays",
 }
 
 
@@ -332,6 +333,11 @@ def as_payslip(ledger, entry):
     month = entry.get("insuranceMonth") or ledger.get("insuranceMonth")
     if month:
         data["insuranceMonth"] = month
+    children = entry.get("childcareChildren")
+    if children is None:
+        children = ledger.get("childcareChildren")
+    if children is not None:
+        data["childcareChildren"] = children
     return data
 
 
@@ -382,7 +388,9 @@ def _tax_kind(value):
         return {"taxFree": True, "kind": "meal"}
     if text in {"자가운전", "자가운전보조금", "car"}:
         return {"taxFree": True, "kind": "car"}
-    if text in {"보육", "출산", "출산보육", "childcare"}:
+    if text in {"출산", "birth", "출산지원", "출산지원금"}:
+        return {"taxFree": True, "kind": "birth"}
+    if text in {"보육", "보육수당", "childcare"}:
         return {"taxFree": True, "kind": "childcare"}
     if text in {"예", "y", "yes", "true", "비과세", "1"}:
         return {"taxFree": True}
@@ -457,6 +465,7 @@ def row_to_entry(raw):
         tax["family"] = raw["family"]
     if not _blank(raw.get("children8to20")):
         tax["children8to20"] = raw["children8to20"]
+    childcare_children = raw.get("childcareChildren")
     entry = {
         "employee": emp,
         "pay": pay,
@@ -472,6 +481,8 @@ def row_to_entry(raw):
     }
     if tax:
         entry["incomeTax"] = tax
+    if not _blank(childcare_children):
+        entry["childcareChildren"] = childcare_children
     if not _blank(raw.get("insuranceMonth")):
         entry["insuranceMonth"] = raw["insuranceMonth"]
     if not _blank(raw.get("calcBasis")):
@@ -608,7 +619,8 @@ def document_from_xlsx(path):
 
 
 def check_entries(data, rep, result=None):
-    from ..checks import (_hourly_exact, mw_basis, ordinary_wage_notice, ORDINARY_BASIS)
+    from ..checks import (_hourly_exact, birth_support_items, mw_basis, ordinary_wage_notice,
+                          BIRTH_BASIS, BIRTH_QUESTION, ORDINARY_BASIS)
 
     if data.get("_rosterError"):
         rep.add("error", "L_ROSTER",
@@ -719,6 +731,10 @@ def check_entries(data, rep, result=None):
             rep.add("info", "P_FAMILY",
                     f"{label} — 공제대상 가족 수(본인 포함)를 모르면 본인 1명으로 계산합니다.",
                     "소득세법 시행령 [별표 2]")
+        if birth_support_items(entry):
+            rep.add("warn", "BIRTH_SUPPORT",
+                    f"{label} — 출산지원금이 있습니다. {BIRTH_QUESTION}인지 확인해 주세요.",
+                    BIRTH_BASIS)
         mw = calc.get("minimumWage") or {}
         if pay.get("type") == "hourly":
             mw = _hourly_exact(mw, {"type": "시급", "amount": pay.get("hourlyWage")})

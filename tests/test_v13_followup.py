@@ -30,20 +30,21 @@ def docx_all_text(path):
 
 class N1Version13(unittest.TestCase):
     def test_version_file_and_label(self):
-        self.assertEqual((ROOT / "VERSION").read_text(encoding="utf-8").strip(), "1.4")
-        self.assertEqual(__version__, "1.4")
-        self.assertEqual(tool_version_label(), "도구 판 v1.4")
+        self.assertEqual((ROOT / "VERSION").read_text(encoding="utf-8").strip(), "1.5")
+        self.assertEqual(__version__, "1.5")
+        self.assertEqual(tool_version_label(), "도구 판 v1.5")
 
     def test_every_sample_prints_v13_only(self):
         with tempfile.TemporaryDirectory() as td:
             for f in sorted((ROOT / "samples").glob("*.json")):
                 out = generate(json.loads(f.read_text(encoding="utf-8")), Path(td) / f.stem, stem=f.stem, pdf=False, png=False)
                 t = docx_all_text(out["docx"])
-                self.assertIn("도구 판 v1.4", t, f.stem)
+                self.assertIn("도구 판 v1.5", t, f.stem)
+                self.assertNotIn("도구 판 v1.4", t, f.stem)
                 self.assertNotIn("도구 판 v1.3", t, f.stem)
                 self.assertNotIn("v1.2", t, f.stem)
                 j = json.loads((Path(td) / f.stem / f"{f.stem}.점검결과.json").read_text(encoding="utf-8"))
-                self.assertEqual(j["tool_version"], "1.4", f.stem)
+                self.assertEqual(j["tool_version"], "1.5", f.stem)
                 self.assertNotIn("v1.2", json.dumps(j, ensure_ascii=False), f.stem)
 
     def test_no_hardcoded_old_version_in_code(self):
@@ -55,9 +56,9 @@ class N1Version13(unittest.TestCase):
     def test_drafts_say_v13(self):
         for f in DRAFT.rglob("*.md"):
             self.assertNotIn("v1.2", f.read_text(encoding="utf-8"), f)
-        self.assertIn("v1.4", (DRAFT / "lbiz-labor-docs-rules" / "SKILL.md").read_text(encoding="utf-8"))
-        self.assertIn("v1.4", (DRAFT / "profile-description.md").read_text(encoding="utf-8"))
-        self.assertIn("v1.4", (ROOT / "README.md").read_text(encoding="utf-8"))
+        self.assertIn("v1.5", (DRAFT / "lbiz-labor-docs-rules" / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertIn("v1.5", (DRAFT / "profile-description.md").read_text(encoding="utf-8"))
+        self.assertIn("v1.5", (ROOT / "README.md").read_text(encoding="utf-8"))
         self.assertIn("임금대장", (ROOT / "README.md").read_text(encoding="utf-8"))
 
 

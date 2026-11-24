@@ -19,10 +19,11 @@ def build_engine_input(data):
     extra = data.get("extraEarnings") or []
     taxable_extra = sum(x.get("amount") or 0 for x in extra if not x.get("taxFree") and not x.get("bonus"))
     bonus = sum(x.get("amount") or 0 for x in extra if x.get("bonus"))
-    taxfree_other = sum(x.get("amount") or 0 for x in extra if x.get("taxFree") and x.get("kind") not in ("meal", "car", "childcare"))
+    taxfree_other = sum(x.get("amount") or 0 for x in extra if x.get("taxFree") and x.get("kind") not in ("meal", "car", "childcare", "birth"))
     meal = sum(x.get("amount") or 0 for x in extra if x.get("kind") == "meal")
     car = sum(x.get("amount") or 0 for x in extra if x.get("kind") == "car")
     care = sum(x.get("amount") or 0 for x in extra if x.get("kind") == "childcare")
+    birth = sum(x.get("amount") or 0 for x in extra if x.get("kind") == "birth")
     inkind = sum(x.get("value") or 0 for x in data.get("inKind") or [])
     inp = {
         "payDate": data.get("payDate"),
@@ -30,7 +31,8 @@ def build_engine_input(data):
         **{k: data[k] for k in ("periodFrom", "periodTo", "insuranceMonth") if data.get(k)},
         "fiveUnder": not bool((data.get("workplace") or {}).get("size5plus")),
         "taxableAllowance": taxable_extra + inkind, "bonus": bonus,
-        "mealAllowance": meal, "carAllowance": car, "childcareAllowance": care, "otherTaxFree": taxfree_other,
+        "mealAllowance": meal, "carAllowance": car, "childcareAllowance": care, "birthAllowance": birth,
+        "otherTaxFree": taxfree_other,
         "overtimeHours": h.get("overtime") or 0, "nightHours": h.get("night") or 0,
         "holidayHoursWithin8": h.get("holidayWithin8") or 0, "holidayHoursOver8": h.get("holidayOver8") or 0,
         "otherDeductions": sum(x.get("amount") or 0 for x in data.get("otherDeductions") or []),
@@ -40,6 +42,11 @@ def build_engine_input(data):
                       **({"family": it["family"]} if it.get("family") is not None else {}),
                       **({"manualTax": it["manualTax"]} if it.get("manualTax") is not None else {})},
     }
+    children = data.get("childcareChildren")
+    if children is None:
+        children = it.get("childcareChildren")
+    if children is not None:
+        inp["childcareChildren"] = children
     ov = {}
     if ins.get("pension") is False:
         ov["nationalPension"] = 0
@@ -78,18 +85,24 @@ def _fmt_h(x):
 
 
 def _rate_note(basis, key, default):
-    """공제 비고. 귀속월 연도 요율이 원문 확인값이면 그 요율, 아니면 [확인 필요]를 붙인다."""
+    """공제 비고. 귀속월 연도 요율이 원문 확인값이면 그 요율, 아니면 [확인 필요]를 붙인다.
+    건강보험 상·하한은 그 한도에 실제로 걸린 2027년 계산에만 따로 붙인다."""
     it = ((basis or {}).get("insurance") or {}).get("rates", {}).get(key) or {}
+    bound = ""
+    if key == "health":
+        note = (((basis or {}).get("insurance") or {}).get("healthPremiumBound") or {}).get("note")
+        if note:
+            bound = " " + note
     if not it or it.get("override"):
-        return default
+        return default + bound
     if not it.get("confirmed"):
         if it.get("pending"):
-            return default + f" [확인 필요: {it.get('year')}년 요율 — {it['pending']}]"
-        return default + f" [확인 필요: {it.get('year')}년 요율 미등록 — 2026년 요율로 임시 계산]"
+            return default + f" [확인 필요: {it.get('year')}년 요율 — {it['pending']}]" + bound
+        return default + f" [확인 필요: {it.get('year')}년 요율 미등록 — 2026년 요율로 임시 계산]" + bound
     if key == "nationalPension" and it.get("rateWorker") not in (None, 0.0475):
         v = round(it["rateWorker"] * 100, 3)
-        return f"근로자 부담분 {v:.2f}%"
-    return default
+        return f"근로자 부담분 {v:.2f}%" + bound
+    return default + bound
 
 
 def _tax_note(data, yb, fam):
