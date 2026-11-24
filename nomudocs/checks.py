@@ -27,6 +27,14 @@ MIN_WAGE = {
 # 근거 원문 확인: 법제처 국가법령정보 근로기준법 시행령 제6조제1항(2025-10-23 시행본),
 # 대법원 2024. 12. 19. 선고 2020다247190 전원합의체 판결(판례 일련번호 600537) — 2026-11-11 조회.
 ORDINARY_BASIS = "근로기준법 시행령 §6①, 대법원 2024. 12. 19. 선고 2020다247190 전원합의체 판결"
+# 근로기준법 §54① 단서(법률 제21784호, 2026-12-10 시행). 법제처 국가법령정보 시행예정본 2026-11-24 조회.
+# 「근로시간이 4시간인 경우」의 범위는 도구가 정하지 않는다.
+BREAK_WAIVER_FROM = parse_date("2026-12-10")
+BREAK_WAIVER_MSG = "근로자가 직접 요청한 경우에만 생략 가능. 요청 사실을 서면으로 남겨 두세요"
+BREAK_SCOPE_NOTE = "[확인 필요] '4시간인 경우'의 범위는 이 도구가 정하지 않습니다. 노무사 또는 고용노동부 1350에 확인하세요."
+BREAK_WAIVER_BASIS = "근로기준법 §54① 단서(법률 제21784호, 2026-12-10 시행)"
+BIRTH_QUESTION = "출생일 2년 이내·최대 2회·친족 특수관계 제외"
+BIRTH_BASIS = "소득세법 §12 3호 머목"
 
 
 def ordinary_wage_notice(names, has_hours):
@@ -247,12 +255,26 @@ def contract_schedule(work):
 
 
 def _min_break_required(work_min):
-    # 근로시간 4시간에 30분, 8시간에 1시간 이상 (§54)
+    # 근로시간 4시간에 30분, 8시간에 1시간 이상 (§54① 본문). 단서의 '4시간인 경우' 범위는 여기서 정하지 않는다.
     if work_min >= 480:
         return 60
     if work_min >= 240:
         return 30
     return 0
+
+
+def _four_hour_bracket(work_min):
+    """30분 휴게가 필요한 구간(4시간 이상 8시간 미만). '4시간인 경우'의 법적 범위와 같다고 단정하지 않는다."""
+    return work_min is not None and 240 <= work_min < 480
+
+
+def _break_reference_date(data):
+    c = data.get("contract") or {}
+    return parse_date(c.get("startDate")) or parse_date(data.get("signDate"))
+
+
+def birth_support_items(data):
+    return [x for x in (data.get("extraEarnings") or []) if x.get("kind") == "birth" and (x.get("amount") or 0)]
 
 
 def _wage_numbers(data, weekly_hours, daily_hours):
@@ -317,10 +339,19 @@ def check_contract(data, kind, rep: Report):
         if s["hours"] is None:
             rep.add("missing", "HOURS_DAY", f"{d}요일 시작·끝 시각이 비었습니다.", "근로기준법 §17①2호")
             continue
-        need = _min_break_required(span_minutes(s["start"], s["end"]) - (s["breakMin"] or 0))
+        span = span_minutes(s["start"], s["end"])
+        work_min = (span - (s["breakMin"] or 0)) if span is not None else 0
+        need = _min_break_required(work_min)
         if (s["breakMin"] or 0) < need:
-            rep.add("error", "BREAK", f"{d}요일 휴게 {s['breakMin'] or 0}분 — 근로 {s['hours']:.1f}시간이면 휴게를 {need}분 이상 줘야 합니다.",
-                    "근로기준법 §54(5인 미만 포함)")
+            ref = _break_reference_date(data)
+            waived = work.get("breakWaivedByWorker") is True
+            if ref and ref >= BREAK_WAIVER_FROM and _four_hour_bracket(work_min) and waived:
+                rep.add("warn", "BREAK",
+                        f"{d}요일 휴게 {s['breakMin'] or 0}분 — 근로 {s['hours']:.1f}시간이면 휴게를 {need}분 이상 줘야 합니다. {BREAK_WAIVER_MSG} {BREAK_SCOPE_NOTE}",
+                        BREAK_WAIVER_BASIS)
+            else:
+                rep.add("error", "BREAK", f"{d}요일 휴게 {s['breakMin'] or 0}분 — 근로 {s['hours']:.1f}시간이면 휴게를 {need}분 이상 줘야 합니다.",
+                        "근로기준법 §54(5인 미만 포함)")
 
     # 법정근로시간·연소자 근로시간
     if kind == "minor":
@@ -552,7 +583,7 @@ def check_foreign(data, rep: Report):
                 "고용노동부 「외국인근로자 주거 관련 가이드라인」(2023.11.27 시행)")
     if l.get("provided") and l.get("type") in ("컨테이너", "조립식 패널"):
         rep.add("warn", "F_LODGING_TYPE", "컨테이너·조립식 패널 숙소는 가설건축물 축조신고 등 기준을 지켜야 하고, 숙소비는 지역 월세 최저액을 넘지 않게 하는 것이 원칙입니다.",
-                "고용노동부 「외국인근로자 주거 관련 가이드라인」")
+                "고용노동부 「외국인근로자 주거 관련 가이드라인」, 외국인근로자의 고용 등에 관한 법률 §22의2(법률 제21786호, 2027-06-10 시행)")
 
     # 최저임금 — 월 통상임금 ÷ 월 유급시간
     weekly = w.get("weeklyHours")
@@ -708,6 +739,8 @@ def check_payslip(data, rep: Report, result=None):
         rep.add("info", "P_CHILDREN", "공제대상 가족 중 8세 이상 20세 이하 자녀가 몇 명인지 알려 주세요. 없으면 0명으로 계산합니다.", "소득세법 시행령 [별표 2] 제3호")
     if fam is None and it.get("mode", "table") == "table":
         rep.add("info", "P_FAMILY", "공제대상 가족 수(본인 포함)를 모르면 본인 1명으로 계산합니다. 부양가족이 있으면 소득세가 실제보다 많이 나옵니다.", "소득세법 시행령 [별표 2]")
+    if birth_support_items(data):
+        rep.add("warn", "BIRTH_SUPPORT", f"출산지원금이 있습니다. {BIRTH_QUESTION}인지 확인해 주세요.", BIRTH_BASIS)
     if result:
         mw = result.get("minimumWage") or {}
         p_ = data.get("pay") or {}

@@ -347,7 +347,7 @@ class PayYearBasis(unittest.TestCase):
         self.assertEqual(r["netPay"], r["earnings"]["grossPay"] - d["totalDeductions"])
 
     def test_insurance_month_2027_01(self):
-        # 1월분 보험료를 떼는 회사: 국민연금 2027 요율(근로자 5.00%), 나머지는 [확인 필요]
+        # 1월분 보험료를 떼는 회사: 국민연금·건강보험 2027 요율 확정, 장기요양·고용보험은 [확인 필요]
         data, r = prepare(self.dec2026(insuranceMonth="2027-01"))
         yb = r["yearBasis"]["insurance"]
         self.assertEqual(yb["month"], "2027-01")
@@ -356,10 +356,15 @@ class PayYearBasis(unittest.TestCase):
         self.assertAlmostEqual(yb["rates"]["nationalPension"]["rateWorker"], 0.05)
         self.assertIn("제20903호", yb["rates"]["nationalPension"]["src"])
         self.assertEqual(yb["rates"]["nationalPension"]["checked"], "2026-11-09")
-        for k in ("health", "longTermCare", "employment"):
+        self.assertTrue(yb["rates"]["health"]["confirmed"])
+        self.assertAlmostEqual(yb["rates"]["health"]["rateTotal"], 0.0719)
+        self.assertAlmostEqual(yb["rates"]["health"]["rateWorker"], 0.03595)
+        self.assertNotIn("[확인 필요]", yb["rates"]["health"]["src"])
+        self.assertIsNone(yb["healthPremiumBound"])
+        for k in ("longTermCare", "employment"):
             self.assertFalse(yb["rates"][k]["confirmed"], k)
             self.assertIn("[확인 필요]", yb["rates"][k]["src"])
-        self.assertEqual(yb["unconfirmed"], ["건강보험", "장기요양보험", "고용보험"])
+        self.assertEqual(yb["unconfirmed"], ["장기요양보험", "고용보험"])
         self.assertEqual(yb["pensionPeriod"], "2026H2")  # 2026.7~2027.6 적용기
         taxable = r["earnings"]["taxableGross"]
         self.assertEqual(r["deductions"]["nationalPension"], int(taxable // 1000 * 1000 * 0.05 // 10 * 10))
