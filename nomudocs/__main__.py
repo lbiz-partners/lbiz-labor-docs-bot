@@ -1,12 +1,22 @@
 """사용법:
   python3 -m nomudocs check  입력.json            # 점검만 (빈칸·최저임금·독소조항)
   python3 -m nomudocs make   입력.json [출력폴더] [--no-pdf]
+  python3 -m nomudocs check  명단.xlsx            # 임금대장 엑셀 명단
 """
 import json
 import sys
+from pathlib import Path
 
 from . import checks
 from .generate import Blocked, Refused, generate
+
+
+def load_input(path):
+    file = Path(path)
+    if file.suffix.lower() == ".xlsx":
+        from .docs.ledger import document_from_xlsx
+        return document_from_xlsx(file)
+    return json.loads(file.read_text(encoding="utf-8"))
 
 ICON = {"missing": "[빈칸]", "error": "[고쳐야 함]", "warn": "[다시 보기]", "info": "[참고]"}
 
@@ -22,7 +32,7 @@ def main(argv):
     if len(argv) < 2 or argv[0] not in ("check", "make"):
         print(__doc__)
         return 2
-    data = json.load(open(argv[1], encoding="utf-8"))
+    data = load_input(argv[1])
     if argv[0] == "check":
         from .generate import prepare
         data, res = prepare(data)

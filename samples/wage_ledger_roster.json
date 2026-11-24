@@ -1,0 +1,21 @@
+{
+  "doc": "wage_ledger",
+  "groupBy": "month",
+  "workplace": {
+    "size5plus": true
+  },
+  "employer": {
+    "name": "주식회사 예시상사",
+    "ceo": "김대표",
+    "bizNo": "000-00-00000",
+    "address": "서울특별시 예시구 예시로 12, 3층",
+    "phone": "02-000-0000"
+  },
+  "insurance": {
+    "employment": true,
+    "industrial": true,
+    "pension": true,
+    "health": true
+  },
+  "roster": "samples/wage_ledger_roster.xlsx"
+}

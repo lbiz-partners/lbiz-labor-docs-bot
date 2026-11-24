@@ -1,0 +1,65 @@
+{
+  "doc": "wage_ledger",
+  "groupBy": "month",
+  "workplace": {
+    "size5plus": false
+  },
+  "employer": {
+    "name": "예시분식",
+    "ceo": "박사장",
+    "bizNo": "000-00-00000",
+    "address": "서울특별시 예시구 골목길 1",
+    "phone": "02-000-0001"
+  },
+  "insurance": {
+    "employment": true,
+    "pension": true,
+    "health": true
+  },
+  "entries": [
+    {
+      "employee": {
+        "name": "박알바",
+        "birth": "2000-02-02",
+        "employeeNo": "E-3003",
+        "hiredOn": "2026-01-05",
+        "job": "홀서빙"
+      },
+      "periodLabel": "2026년 11월",
+      "payDate": "2026-11-25",
+      "periodFrom": "2026-11-01",
+      "periodTo": "2026-11-30",
+      "workDays": 15,
+      "pay": {
+        "type": "monthly",
+        "baseSalary": 2200000
+      },
+      "incomeTax": {
+        "family": 1,
+        "children8to20": 0
+      }
+    },
+    {
+      "employee": {
+        "name": "이수습",
+        "birth": "1999-07-07",
+        "employeeNo": "E-3004",
+        "hiredOn": "2026-03-02",
+        "job": "주방"
+      },
+      "periodLabel": "2026년 11월",
+      "payDate": "2026-11-25",
+      "periodFrom": "2026-11-01",
+      "periodTo": "2026-11-30",
+      "workDays": 16,
+      "pay": {
+        "type": "monthly",
+        "baseSalary": 2300000
+      },
+      "incomeTax": {
+        "family": 1,
+        "children8to20": 0
+      }
+    }
+  ]
+}
