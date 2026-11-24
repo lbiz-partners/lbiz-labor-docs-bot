@@ -57,7 +57,7 @@ def box(checked):
 
 
 class Doc:
-    def __init__(self, title, subtitle=None, footer=None, base_size=9.5):
+    def __init__(self, title, subtitle=None, footer=None, base_size=9.5, landscape=False, margin_mm=None):
         self.d = Document()
         self.base = base_size
         st = self.d.styles["Normal"]
@@ -69,10 +69,17 @@ class Doc:
         pf.space_before = Pt(0)
         pf.line_spacing = 1.15
         sec = self.d.sections[0]
-        sec.orientation = WD_ORIENT.PORTRAIT
-        sec.page_width, sec.page_height = Mm(210), Mm(297)
-        sec.left_margin = sec.right_margin = Mm(18)
-        sec.top_margin, sec.bottom_margin = Mm(15), Mm(15)
+        if landscape:
+            sec.orientation = WD_ORIENT.LANDSCAPE
+            sec.page_width, sec.page_height = Mm(297), Mm(210)
+        else:
+            sec.orientation = WD_ORIENT.PORTRAIT
+            sec.page_width, sec.page_height = Mm(210), Mm(297)
+        side = 10 if landscape else 18
+        if margin_mm is not None:
+            side = margin_mm
+        sec.left_margin = sec.right_margin = Mm(side)
+        sec.top_margin = sec.bottom_margin = Mm(12 if landscape else 15)
         if footer:
             fp = sec.footer.paragraphs[0]
             fp.alignment = WD_ALIGN_PARAGRAPH.CENTER

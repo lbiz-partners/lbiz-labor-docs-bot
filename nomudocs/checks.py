@@ -124,7 +124,41 @@ def _walk(obj, path=""):
         yield path, obj
 
 
+# 키 이름만 본다. 값 안의 '계좌이체' 같은 지급방법은 막지 않는다.
+_FORBIDDEN_KEY = re.compile(
+    r"주민등록번호|주민번호|외국인등록번호|계좌번호|accountno|accountnumber|bankaccount|^rrn$|^jumin$",
+    re.I,
+)
+
+
+def _key_forbidden(key):
+    compact = re.sub(r"[\s_\-]", "", str(key))
+    return bool(_FORBIDDEN_KEY.search(compact))
+
+
+def _walk_keys(obj, path=""):
+    if isinstance(obj, dict):
+        for k, val in obj.items():
+            p = f"{path}.{k}" if path else str(k)
+            yield p, str(k)
+            yield from _walk_keys(val, p)
+    elif isinstance(obj, list):
+        for i, val in enumerate(obj):
+            yield from _walk_keys(val, f"{path}[{i}]")
+
+
 def scan_sensitive(data, rep: Report):
+    for path, key in _walk_keys(data):
+        if not _key_forbidden(key):
+            continue
+        if "계좌" in key or re.search(r"account", key, re.I):
+            rep.add("error", "SENSITIVE_ACCOUNT",
+                    f"'{path}'은 계좌번호 칸입니다. 계좌번호는 받지 않습니다.",
+                    "개인정보 보호법 §3(최소 수집)")
+        else:
+            rep.add("error", "SENSITIVE_RRN",
+                    f"'{path}'은 주민등록번호 칸입니다. 서류에는 생년월일만 쓰고, 번호 칸은 만들지 마세요.",
+                    "개인정보 보호법 §24의2(주민등록번호 처리 제한)")
     for path, s in _walk(data):
         if RRN.search(s):
             rep.add("error", "SENSITIVE_RRN",
@@ -139,7 +173,7 @@ def scan_sensitive(data, rep: Report):
 def mask_sensitive(data):
     """민감정보를 가려서 돌려준다(렌더링 전 안전장치)."""
     if isinstance(data, dict):
-        return {k: mask_sensitive(x) for k, x in data.items()}
+        return {k: ("제외" if _key_forbidden(k) else mask_sensitive(x)) for k, x in data.items()}
     if isinstance(data, list):
         return [mask_sensitive(x) for x in data]
     if isinstance(data, str):
@@ -707,6 +741,7 @@ DOC_KINDS = {
     "cert_employment": ("cert", "employment"),
     "cert_career": ("cert", "career"),
     "payslip": ("payslip", None),
+    "wage_ledger": ("ledger", None),
 }
 
 
@@ -724,6 +759,9 @@ def check(data, result=None) -> Report:
         check_foreign(data, rep)
     elif fam == "cert":
         check_cert(data, kind, rep)
-    else:
+    elif fam == "payslip":
         check_payslip(data, rep, result)
+    else:
+        from .docs.ledger import check_entries
+        check_entries(data, rep, result)
     return rep

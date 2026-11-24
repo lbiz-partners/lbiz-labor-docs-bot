@@ -1,0 +1,138 @@
+{
+  "doc": "wage_ledger",
+  "groupBy": "worker",
+  "workplace": {
+    "size5plus": true
+  },
+  "employer": {
+    "name": "주식회사 예시상사",
+    "ceo": "김대표",
+    "bizNo": "000-00-00000",
+    "address": "서울특별시 예시구 예시로 12, 3층",
+    "phone": "02-000-0000"
+  },
+  "insurance": {
+    "employment": true,
+    "industrial": true,
+    "pension": true,
+    "health": true
+  },
+  "entries": [
+    {
+      "employee": {
+        "name": "홍길동",
+        "birth": "1995-04-12",
+        "employeeNo": "E-1001",
+        "hiredOn": "2024-03-01",
+        "job": "경영지원"
+      },
+      "periodLabel": "2026년 11월",
+      "payDate": "2026-11-25",
+      "periodFrom": "2026-11-01",
+      "periodTo": "2026-11-30",
+      "workDays": 20,
+      "totalHours": 170,
+      "pay": {
+        "type": "monthly",
+        "baseSalary": 2600000
+      },
+      "hours": {
+        "overtime": 10,
+        "night": 2
+      },
+      "extraEarnings": [
+        {
+          "name": "식대",
+          "amount": 200000,
+          "kind": "meal",
+          "taxFree": true
+        }
+      ],
+      "incomeTax": {
+        "family": 2,
+        "children8to20": 0
+      }
+    },
+    {
+      "employee": {
+        "name": "홍길동",
+        "birth": "1995-04-12",
+        "employeeNo": "E-1001",
+        "hiredOn": "2024-03-01",
+        "job": "경영지원"
+      },
+      "periodLabel": "2026년 12월",
+      "payDate": "2027-01-10",
+      "periodFrom": "2026-12-01",
+      "periodTo": "2026-12-31",
+      "insuranceMonth": "2026-12",
+      "workDays": 21,
+      "totalHours": 168,
+      "pay": {
+        "type": "monthly",
+        "baseSalary": 2600000
+      },
+      "hours": {
+        "overtime": 4
+      },
+      "extraEarnings": [
+        {
+          "name": "식대",
+          "amount": 200000,
+          "kind": "meal",
+          "taxFree": true
+        }
+      ],
+      "incomeTax": {
+        "family": 2,
+        "children8to20": 0
+      }
+    },
+    {
+      "employee": {
+        "name": "김하나",
+        "birth": "1992-01-30",
+        "employeeNo": "E-2002",
+        "hiredOn": "2023-09-01",
+        "job": "매장관리"
+      },
+      "periodLabel": "2026년 11월",
+      "payDate": "2026-11-25",
+      "periodFrom": "2026-11-01",
+      "periodTo": "2026-11-30",
+      "workDays": 20,
+      "totalHours": 160,
+      "pay": {
+        "type": "monthly",
+        "baseSalary": 2400000
+      },
+      "incomeTax": {
+        "family": 1,
+        "children8to20": 0
+      }
+    },
+    {
+      "employee": {
+        "name": "김하나",
+        "birth": "1992-01-30",
+        "employeeNo": "E-2002",
+        "hiredOn": "2023-09-01",
+        "job": "매장관리"
+      },
+      "periodLabel": "2026년 12월",
+      "payDate": "2026-12-25",
+      "periodFrom": "2026-12-01",
+      "periodTo": "2026-12-31",
+      "workDays": 19,
+      "totalHours": 152,
+      "pay": {
+        "type": "monthly",
+        "baseSalary": 2400000
+      },
+      "incomeTax": {
+        "family": 1,
+        "children8to20": 0
+      }
+    }
+  ]
+}

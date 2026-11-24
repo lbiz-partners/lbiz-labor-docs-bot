@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 from . import ATTRIBUTION, __version__, calc, checks, tool_version_label
-from .docs import certificates, contract, foreign, payslip
+from .docs import certificates, contract, foreign, ledger, payslip
 from .render import docx_to_pdf, pdf_to_png
 
 # 바닥글(L-3): 연도별 반영 항목을 바닥글에 적지 않는다. 어떤 기준값을 썼는지는 점검결과(.점검결과.json)와
@@ -12,7 +12,7 @@ FOOTER = "이 서류는 사업주가 직접 입력한 내용으로 만든 양식
 NAMES = {
     "contract_regular": "근로계약서_정규직", "contract_fixed": "근로계약서_기간제", "contract_parttime": "근로계약서_단시간",
     "contract_minor": "근로계약서_연소자", "contract_foreign": "표준근로계약서_외국인", "cert_employment": "재직증명서",
-    "cert_career": "경력증명서", "payslip": "임금명세서",
+    "cert_career": "경력증명서", "payslip": "임금명세서", "wage_ledger": "임금대장",
 }
 
 
@@ -32,18 +32,29 @@ class Refused(Exception):
         self.report = report
 
 
+def _one_payroll(pseudo):
+    """임금명세서 한 장과 같은 엔진 호출. 요율표는 엔진에만 있다."""
+    inp = payslip.build_engine_input(pseudo)
+    result = calc.payroll({k: x for k, x in inp.items() if not str(k).startswith("_")})
+    base_date = pseudo.get("periodTo") or pseudo.get("periodFrom") or pseudo.get("payDate")
+    mw_inp = inp["_mw"] if inp.get("_mw") else {k: x for k, x in inp.items() if not str(k).startswith("_")}
+    result["minimumWage"] = calc.minwage({**mw_inp, "payDate": base_date})
+    return inp, result
+
+
 def prepare(data):
-    """임금명세서면 엔진으로 먼저 계산한다. (data, result) 를 돌려준다."""
+    """임금명세서·임금대장은 엔진으로 먼저 계산한다. (data, result) 를 돌려준다."""
+    if data.get("doc") == "wage_ledger":
+        data = ledger.expand(data)
+        bundle = []
+        for entry in data.get("entries") or []:
+            inp, result = _one_payroll(ledger.as_payslip(data, entry))
+            bundle.append({"input": inp, "result": result})
+        return data, {"entries": bundle, "groupBy": data.get("groupBy")}
     if data.get("doc") != "payslip":
         return data, None
-    inp = payslip.build_engine_input(data)
+    inp, result = _one_payroll(data)
     data = {**data, "_engine_input": inp}
-    result = calc.payroll({k: x for k, x in inp.items() if not k.startswith("_")})
-    # 최저임금은 임금계산기간(끝날 → 시작날 → 지급일)의 연도 값으로 판정한다.
-    # 예: 2026년 12월분을 2027-01-10에 주면 2026년 값, 2027년 1월분이면 2027년 값.
-    base_date = data.get("periodTo") or data.get("periodFrom") or data.get("payDate")
-    mw_inp = inp["_mw"] if inp.get("_mw") else {k: x for k, x in inp.items() if not k.startswith("_")}
-    result["minimumWage"] = calc.minwage({**mw_inp, "payDate": base_date})
     return data, result
 
 
@@ -64,6 +75,8 @@ def generate(data: dict, outdir, stem=None, pdf=True, png=True, footer=FOOTER, a
         doc = foreign.render(safe, rep, footer)
     elif fam == "cert":
         doc = certificates.render(safe, rep, kind, footer)
+    elif fam == "ledger":
+        doc = ledger.render(safe, rep, result, footer)
     else:
         doc = payslip.render(safe, rep, result, footer)
     stem = stem or NAMES[data["doc"]]
@@ -72,7 +85,21 @@ def generate(data: dict, outdir, stem=None, pdf=True, png=True, footer=FOOTER, a
     doc.p(f"{tool_version_label()} · {ATTRIBUTION}", size=8, gray=True)
     doc.save(dx)
     out = {"docx": str(dx), "report": rep.as_dict(), "tool_version": __version__, "made_by": ATTRIBUTION}
-    if result is not None:
+    if result is not None and data.get("doc") == "wage_ledger":
+        rows = []
+        for entry, item in zip(data.get("entries") or [], result.get("entries") or []):
+            emp = entry.get("employee") or {}
+            calc_result = item["result"]
+            rows.append({
+                "name": emp.get("name"),
+                "month": entry.get("periodLabel") or "",
+                "earnings": calc_result["earnings"],
+                "deductions": calc_result["deductions"],
+                "netPay": calc_result["netPay"],
+                "basis": calc_result.get("yearBasis"),
+            })
+        out["payroll"] = {"entries": rows, "count": len(rows)}
+    elif result is not None:
         out["payroll"] = {"earnings": result["earnings"], "deductions": result["deductions"], "netPay": result["netPay"]}
         if result.get("yearBasis"):
             # 어느 날짜·어느 달 기준으로 계산했는지(소득세 = 지급일, 4대보험 = 몇 월분 보험료)와 안내 문장
